@@ -1,0 +1,25 @@
+COMANDI CLI PLATFORMIO
+- pio home (ti apre la hub di platformIO da browser)
+- pio run --target upload (lanciato dentro la cartella del progetto, compila e uploda su scheda)
+- pio device monitor (monitor seriale)
+
+COMANDI CLI ESP-IDF
+- "source ~/.zshrc" quando apri il terminale
+- "idf.py build" compila e basta
+- "idf.py -p /dev/tty.usbserial-0001 flash" compila e uploda
+- oppure: "idf.py -p /dev/tty.usbserial-110 flash"
+- "idf.py -p /dev/tty.usbserial-0001 monitor" (monitor seriale) ("control + ]" per uscire )
+oppure idf.py -p /dev/tty.usbserial-110 monitor
+- "idf.py fullclean" pulizia della build (per ricompilare da zero)
+
+
+
+GPIO ESP32CAM
+- 4 per flash
+
+
+ISTRUZIONI E APPUNTI
+- Ricorda di killare il terminale del seriale prima di fare upload nuovo firmware
+- Se cambi porta di collegamento esp a mac, cambia "upload_port" in platformio.ini
+- che tu stia usando una esp32cam oppure un esp32, cambia "board" in platformio.ini
+- "172.20.10.2" ip per webserver
