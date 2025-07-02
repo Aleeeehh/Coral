@@ -51,121 +51,172 @@ static camera_config_t camera_config = {
     .sccb_i2c_port = 0};
 
 // HTML per la pagina principale
-static const char *main_page_html = R"(
-<!DOCTYPE html>
-<html>
-<head>
-    <title>ESP32-CAM</title>
-    <meta charset='UTF-8'>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            text-align: center;
-            margin: 20px;
-            background-color: #f0f0f0;
-        }
-        .container {
-            max-width: 800px;
-            margin: 0 auto;
-            background-color: white;
-            padding: 20px;
-            border-radius: 10px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-        }
-        .photo-container {
-            margin: 20px;
-            padding: 10px;
-            border: 2px solid #ccc;
-            display: inline-block;
-            border-radius: 5px;
-        }
-        .stream-container {
-            margin: 20px;
-            padding: 10px;
-            border: 2px solid #0066cc;
-            display: inline-block;
-            border-radius: 5px;
-        }
-        button {
-            padding: 15px 30px;
-            font-size: 18px;
-            margin: 10px;
-            border: none;
-            cursor: pointer;
-            border-radius: 5px;
-            transition: background-color 0.3s;
-        }
-        .photo-btn {
-            background-color: #4CAF50;
-            color: white;
-        }
-        .photo-btn:hover {
-            background-color: #45a049;
-        }
-        .stream-btn {
-            background-color: #0066cc;
-            color: white;
-        }
-        .stream-btn:hover {
-            background-color: #0052a3;
-        }
-        .status {
-            margin: 10px;
-            padding: 10px;
-            border-radius: 5px;
-            font-weight: bold;
-        }
-        .status.connected {
-            background-color: #d4edda;
-            color: #155724;
-            border: 1px solid #c3e6cb;
-        }
-        .status.disconnected {
-            background-color: #f8d7da;
-            color: #721c24;
-            border: 1px solid #f5c6cb;
-        }
+static const char *main_page_html = R"rawliteral(
+                                    <!DOCTYPE html>
+                                    <html>
+                                        <head>
+                                        <title> ESP32 - CAM</title>
+                                        <meta charset = 'UTF-8'>
+                                        <style>
+                                            body
+{
+    font-family : Arial, sans-serif;
+    text-align : center;
+margin:
+    20px;
+    background-color : #f0f0f0;
+}
+.container
+{
+    max-width : 800px;
+margin:
+    0 auto;
+    background-color : white;
+padding:
+    20px;
+    border-radius : 10px;
+    box-shadow : 0 2px 10px rgba(0, 0, 0, 0.1);
+}
+.photo-container
+{
+margin:
+    20px;
+padding:
+    10px;
+border:
+    2px solid #ccc;
+display:
+    inline-block;
+    border-radius : 5px;
+}
+.stream-container
+{
+margin:
+    20px;
+padding:
+    10px;
+border:
+    2px solid #0066cc;
+display:
+    inline-block;
+    border-radius : 5px;
+}
+button
+{
+padding:
+    15px 30px;
+    font-size : 18px;
+margin:
+    10px;
+border:
+    none;
+cursor:
+    pointer;
+    border-radius : 5px;
+transition:
+    background-color 0.3s;
+}
+.photo-btn
+{
+    background-color : #4CAF50;
+color:
+    white;
+}
+.photo-btn : hover
+{
+    background-color : #45a049;
+}
+.stream-btn
+{
+    background-color : #0066cc;
+color:
+    white;
+}
+.stream-btn : hover
+{
+    background-color : #0052a3;
+}
+.status
+{
+margin:
+    10px;
+padding:
+    10px;
+    border-radius : 5px;
+    font-weight : bold;
+}
+.status.connected
+{
+    background-color : #d4edda;
+color:
+# 155724;
+    border:
+        1px solid #c3e6cb;
+    }
+    .status.disconnected
+    {
+        background-color : #f8d7da;
+    color:
+# 721c24;
+    border:
+        1px solid #f5c6cb;
+    }
     </style>
-    <script>
-        window.onload = function() {
-            updatePhoto();
-        };
-        
-        function updatePhoto() {
-            var img = document.getElementById('photo');
-            if(img) {
-                img.src = '/photo?t=' + Date.now();
-                img.onload = function() {
-                    console.log('Foto caricata con successo');
-                };
-                img.onerror = function() {
-                    console.log('Nessuna foto disponibile');
-                    img.style.display = 'none';
-                };
-            }
+        <script>
+            window.onload = function()
+    {
+        updatePhoto();
+    };
+
+    function updatePhoto()
+    {
+        var img = document.getElementById('photo');
+        if (img)
+        {
+            console.log('Aggiornamento foto...');
+            img.src = '/photo?t=' + Date.now();
+            img.onload = function()
+            {
+                console.log('✅ Foto caricata con successo');
+                img.style.display = 'block';
+            };
+            img.onerror = function()
+            {
+                console.log('❌ Errore caricamento foto');
+                img.style.display = 'none';
+            };
         }
-        
-        function updateStatus() {
-            fetch('/status')
-                .then(response => response.json())
-                .then(data => {
-                    var statusDiv = document.getElementById('status');
-                    if (data.connected) {
-                        statusDiv.className = 'status connected';
-                        statusDiv.textContent = '✅ Connesso - IP: ' + data.ip;
-                    } else {
-                        statusDiv.className = 'status disconnected';
-                        statusDiv.textContent = '❌ Disconnesso';
-                    }
-                })
-                .catch(error => {
-                    console.error('Errore aggiornamento status:', error);
-                });
+        else
+        {
+            console.log('❌ Elemento img#photo non trovato');
         }
-        
-        // Aggiorna status ogni 5 secondi
-        setInterval(updateStatus, 5000);
-        updateStatus();
+    }
+
+    function updateStatus()
+    {
+        fetch('/status')
+            .then(response => response.json())
+            .then(data => {
+                var statusDiv = document.getElementById('status');
+                if (data.connected)
+                {
+                    statusDiv.className = 'status connected';
+                    statusDiv.textContent = '✅ Connesso - IP: ' + data.ip;
+                }
+                else
+                {
+                    statusDiv.className = 'status disconnected';
+                    statusDiv.textContent = '❌ Disconnesso';
+                }
+            })
+            .catch(error => {
+                console.error('Errore aggiornamento status:', error);
+            });
+    }
+
+    // Aggiorna status ogni 5 secondi
+    setInterval(updateStatus, 5000);
+    updateStatus();
     </script>
 </head>
 <body>
@@ -182,7 +233,7 @@ static const char *main_page_html = R"(
     </div>
 </body>
 </html>
-)";
+)rawliteral";
 
 // Handler per la pagina principale
 static esp_err_t root_get_handler(httpd_req_t *req)
@@ -205,84 +256,32 @@ static esp_err_t root_get_handler(httpd_req_t *req)
     return ret;
 }
 
-// Handler per lo scatto foto
-static esp_err_t capture_get_handler(httpd_req_t *req)
-{
-    ESP_LOGI(TAG, "📸 Richiesta scatto foto");
-
-    // Scatta la foto
-    esp_err_t ret = camera_capture_photo();
-    if (ret != ESP_OK)
+    // Handler per lo scatto foto
+    static esp_err_t capture_get_handler(httpd_req_t *req)
     {
-        ESP_LOGE(TAG, "❌ Errore scatto foto: %s", esp_err_to_name(ret));
-        httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Errore scatto foto");
-        return ESP_FAIL;
+        ESP_LOGI(TAG, "📸 Richiesta scatto foto");
+
+        // Scatta la foto
+        esp_err_t ret = camera_capture_photo();
+        if (ret != ESP_OK)
+        {
+            ESP_LOGE(TAG, "❌ Errore scatto foto: %s", esp_err_to_name(ret));
+            httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Errore scatto foto");
+            return ESP_FAIL;
+        }
+
+        // Invia pagina di conferma con redirect
+        httpd_resp_set_status(req, "302 Found");
+        httpd_resp_set_hdr(req, "Location", "/");
+        httpd_resp_send(req, NULL, 0);
+
+        return ESP_OK;
     }
 
-    // Invia pagina di conferma con redirect
-    const char *html = R"(
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Foto Scattata</title>
-    <meta charset='UTF-8'>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            text-align: center;
-            margin: 20px;
-            background-color: #f0f0f0;
-        }
-        .container {
-            max-width: 600px;
-            margin: 0 auto;
-            background-color: white;
-            padding: 20px;
-            border-radius: 10px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-        }
-        .success {
-            color: #155724;
-            background-color: #d4edda;
-            border: 1px solid #c3e6cb;
-            padding: 15px;
-            border-radius: 5px;
-            margin: 20px 0;
-        }
-    </style>
-    <script>
-        setTimeout(function(){ 
-            window.location.href='/?refresh=' + Date.now(); 
-        }, 1000);
-    </script>
-</head>
-<body>
-    <div class="container">
-        <h1>✅ Foto Scattata!</h1>
-        <div class="success">
-            <p>La foto è stata acquisita con successo.</p>
-            <p>Reindirizzamento alla home page...</p>
-        </div>
-    </div>
-</body>
-</html>
-)";
-
-    httpd_resp_set_type(req, "text/html");
-    ret = httpd_resp_send(req, html, strlen(html));
-
-    if (ret == ESP_OK)
+    // Handler per la visualizzazione foto
+    static esp_err_t photo_get_handler(httpd_req_t *req)
     {
-        ESP_LOGI(TAG, "✅ Pagina conferma foto inviata");
-    }
-
-    return ret;
-}
-
-// Handler per la visualizzazione foto
-static esp_err_t photo_get_handler(httpd_req_t *req)
-{
-    ESP_LOGI(TAG, "🖼️ Richiesta visualizzazione foto");
+        ESP_LOGI(TAG, "🖼️ Richiesta visualizzazione foto");
 
     uint8_t *buffer;
     size_t size;
@@ -353,15 +352,6 @@ static esp_err_t camera_init(void)
         ESP_LOGE(TAG, "❌ Errore creazione mutex fotocamera");
         return ESP_FAIL;
     }
-    /*
-    // Inizializza LED
-    esp_err_t ret = led_init();
-    if (ret != ESP_OK)
-    {
-        ESP_LOGE(TAG, "❌ Errore inizializzazione LED: %s", esp_err_to_name(ret));
-        return ret;
-    }
-    */
 
     // Inizializza fotocamera
     esp_err_t ret = esp_camera_init(&camera_config);
@@ -394,15 +384,11 @@ static esp_err_t camera_capture_photo(void)
         last_photo_size = 0;
     }
 
-    // Accendi LED flash
-    //led_on();
-
     // Acquisisci frame
     camera_fb_t *fb = esp_camera_fb_get();
     if (!fb)
     {
         ESP_LOGE(TAG, "❌ Errore acquisizione frame fotocamera");
-        //led_off();
         xSemaphoreGive(camera_mutex);
         return ESP_FAIL;
     }
@@ -415,7 +401,6 @@ static esp_err_t camera_capture_photo(void)
     {
         ESP_LOGE(TAG, "❌ Errore allocazione memoria per foto");
         esp_camera_fb_return(fb);
-        //led_off();
         xSemaphoreGive(camera_mutex);
         return ESP_ERR_NO_MEM;
     }
@@ -427,9 +412,6 @@ static esp_err_t camera_capture_photo(void)
 
     // Restituisci il frame buffer
     esp_camera_fb_return(fb);
-
-    // Spegni LED flash
-    //led_off();
 
     ESP_LOGI(TAG, "✅ Foto salvata: %d bytes", last_photo_size);
 

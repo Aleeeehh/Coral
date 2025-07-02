@@ -35,16 +35,6 @@ ESP32CAM_ESPIDF/
     └── espressif__esp_jpeg/       # Decoder JPEG
 ```
 
-## 🔧 Configurazione Hardware
-
-### ESP32-CAM AI-Thinker Pinout
-- **Fotocamera**: OV2640 integrata
-- **LED Flash**: GPIO 4
-- **WiFi**: Integrato
-- **Memoria**: 4MB Flash + 520KB SRAM
-
-
-## 🌐 Funzionalità Webserver
 
 ### Endpoint Disponibili Interfaccia Web
 - `GET /` - Pagina principale con interfaccia web

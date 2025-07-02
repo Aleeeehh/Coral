@@ -88,7 +88,7 @@ static void webserver_task(void *pvParameters)
     }
 }
 
-void app_main(void)
+extern "C" void app_main(void)
 {
     ESP_LOGI(TAG, "🚀 Avvio ESP32CAM con ESP-IDF e FreeRTOS");
 
