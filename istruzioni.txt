@@ -9,7 +9,7 @@ COMANDI CLI ESP-IDF
 - "idf.py -p /dev/tty.usbserial-0001 flash" compila e uploda
 - oppure: "idf.py -p /dev/tty.usbserial-110 flash"
 - "idf.py -p /dev/tty.usbserial-0001 monitor" (monitor seriale) ("control + ]" per uscire )
-oppure idf.py -p /dev/tty.usbserial-110 monitor
+oppure "idf.py -p /dev/tty.usbserial-110 monitor"
 - "idf.py fullclean" pulizia della build (per ricompilare da zero)
 
 

@@ -6,7 +6,6 @@
 #include "freertos/task.h"
 #include "freertos/semphr.h"
 #include "esp_timer.h"
-#include "led_control.h"
 
 static const char *TAG = "WEBSERVER";
 
@@ -16,12 +15,12 @@ static esp_err_t camera_capture_photo(void);
 static esp_err_t camera_get_last_photo(uint8_t **buffer, size_t *size);
 
 // Variabili globali per la fotocamera
-static uint8_t *last_photo_buffer = NULL;
-static size_t last_photo_size = 0;
-static uint32_t last_photo_timestamp = 0;
-static SemaphoreHandle_t camera_mutex = NULL;
+static uint8_t *last_photo_buffer = NULL; //buffer di 8 bit per la foto
+static size_t last_photo_size = 0; //dimensione della foto, usato size_t per portabilità (valori diversi in base a tipo di esp, in questo caso "32 bit")
+static uint32_t last_photo_timestamp = 0; //timestamp della foto
+static SemaphoreHandle_t camera_mutex = NULL; //semaforo mutex per la fotocamera
 
-// Configurazione fotocamera ESP32CAM AI-Thinker
+// Configurazione fotocamera ESP32CAM (forse saranno da cambiare per esp32-s3 ai camera)
 static camera_config_t camera_config = {
     .pin_pwdn = 32,
     .pin_reset = -1,
@@ -243,6 +242,7 @@ static esp_err_t root_get_handler(httpd_req_t *req)
     httpd_resp_set_type(req, "text/html");
     httpd_resp_set_hdr(req, "Content-Encoding", "identity");
 
+    //invia l'html dal esp32 al browser 
     esp_err_t ret = httpd_resp_send(req, main_page_html, strlen(main_page_html));
     if (ret != ESP_OK)
     {
@@ -345,7 +345,7 @@ static esp_err_t camera_init(void)
 {
     ESP_LOGI(TAG, "🔧 Inizializzazione fotocamera ESP32CAM...");
 
-    // Crea mutex per accesso thread-safe
+    // Crea un semaforo mutex (inizializzato ad 1) per l'accesso thread-safe sulla fotocamera
     camera_mutex = xSemaphoreCreateMutex();
     if (camera_mutex == NULL)
     {
@@ -353,7 +353,7 @@ static esp_err_t camera_init(void)
         return ESP_FAIL;
     }
 
-    // Inizializza fotocamera
+    // Inizializza la fotocamera
     esp_err_t ret = esp_camera_init(&camera_config);
     if (ret != ESP_OK)
     {
@@ -369,6 +369,7 @@ static esp_err_t camera_capture_photo(void)
 {
     ESP_LOGI(TAG, "📸 Acquisizione foto...");
 
+    //attende 5 secondi e prendere il mutex, se non riesce dopo 5sec ritorna errore
     if (xSemaphoreTake(camera_mutex, pdMS_TO_TICKS(5000)) != pdTRUE)
     {
         ESP_LOGE(TAG, "❌ Timeout acquisizione mutex fotocamera");
@@ -406,6 +407,7 @@ static esp_err_t camera_capture_photo(void)
     }
 
     // Copia i dati
+    //sposta fb->len byte dal buffer fb->buf (memoria temporanea) al buffer last_photo_buffer (memoria permanente)
     memcpy(last_photo_buffer, fb->buf, fb->len);
     last_photo_size = fb->len;
     last_photo_timestamp = esp_timer_get_time() / 1000000;
@@ -415,10 +417,11 @@ static esp_err_t camera_capture_photo(void)
 
     ESP_LOGI(TAG, "✅ Foto salvata: %d bytes", last_photo_size);
 
-    xSemaphoreGive(camera_mutex);
+    xSemaphoreGive(camera_mutex); // rilascia il mutex, permettendo a altri task di accedere alla fotocamera
     return ESP_OK;
 }
 
+//TODO: questa funzione è da rivedere, vedo sempre una foto vecchia, e non la corrente
 static esp_err_t camera_get_last_photo(uint8_t **buffer, size_t *size)
 {
     if (last_photo_buffer == NULL || last_photo_size == 0)
