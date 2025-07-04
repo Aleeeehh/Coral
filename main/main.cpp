@@ -42,6 +42,12 @@ static void event_handler(void *arg, esp_event_base_t event_base,
     {
         ip_event_got_ip_t *event = (ip_event_got_ip_t *)event_data; // quando ottiene un IP, imposta il bit di connessione
         ESP_LOGI(TAG, "IP ottenuto:" IPSTR, IP2STR(&event->ip_info.ip));
+        
+        // Converte l'IP in stringa e lo passa al webserver
+        char ip_str[16];
+        snprintf(ip_str, sizeof(ip_str), IPSTR, IP2STR(&event->ip_info.ip));
+        webserver_set_ip(ip_str);
+        
         xEventGroupSetBits(wifi_event_group, WIFI_CONNECTED_BIT);
     }
 }

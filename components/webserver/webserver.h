@@ -32,6 +32,9 @@ extern "C"
  */
     httpd_handle_t webserver_get_handle(void);
 
+    // Funzione per impostare l'IP del webserver
+    void webserver_set_ip(const char* ip_address);
+
 #ifdef __cplusplus
 }
 #endif

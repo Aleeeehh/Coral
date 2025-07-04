@@ -20,6 +20,9 @@ static size_t last_photo_size = 0; //dimensione della foto, usato size_t per por
 static uint32_t last_photo_timestamp = 0; //timestamp della foto
 static SemaphoreHandle_t camera_mutex = NULL; //semaforo mutex per la fotocamera
 
+// Variabile globale per l'IP
+static char current_ip[16] = "0.0.0.0"; // IP di default
+
 // Configurazione camera esp32-s3 ai camera
 static camera_config_t camera_config = {
   .pin_pwdn      = -1,
@@ -42,10 +45,10 @@ static camera_config_t camera_config = {
   .ledc_timer    = LEDC_TIMER_0,
   .ledc_channel  = LEDC_CHANNEL_0,
   .pixel_format  = PIXFORMAT_JPEG,
-  .frame_size    = FRAMESIZE_QVGA,
-  .jpeg_quality  = 10,
+  .frame_size    = FRAMESIZE_QVGA, //FRAMESIZE_QXGA 3MP di risoluzione, altrimenti usa FRAMESIZE_QVGA
+  .jpeg_quality  = 10, //aumento qualità
   .fb_count      = 1,
-  .fb_location   = CAMERA_FB_IN_DRAM,
+  .fb_location   = CAMERA_FB_IN_DRAM, //da implementare in PSRAM
   .grab_mode     = CAMERA_GRAB_WHEN_EMPTY,
   .sccb_i2c_port = 0
 };
@@ -325,11 +328,11 @@ static esp_err_t status_get_handler(httpd_req_t *req)
 {
     ESP_LOGI(TAG, "📊 Richiesta status sistema");
 
-    // Status semplificato senza IP (per ora)
-    char json_response[128];
+    // Status con IP reale
+    char json_response[256];
     snprintf(json_response, sizeof(json_response),
-             "{\"connected\":true,\"ip\":\"192.168.1.100\",\"uptime\":%llu}",
-             esp_timer_get_time() / 1000000);
+             "{\"connected\":true,\"ip\":\"%s\",\"uptime\":%llu}",
+             current_ip, esp_timer_get_time() / 1000000);
 
     httpd_resp_set_type(req, "application/json");
     esp_err_t ret = httpd_resp_send(req, json_response, strlen(json_response));
@@ -388,7 +391,18 @@ static esp_err_t camera_capture_photo(void)
         last_photo_size = 0;
     }
 
-    // Acquisisci frame
+    // Scarta il primo frame (potrebbe essere vecchio)
+    ESP_LOGI(TAG, "🗑️ Scarto primo frame (potrebbe essere vecchio)...");
+    camera_fb_t *fb_old = esp_camera_fb_get(); //acquisisce il frame 
+    if (fb_old) {
+        ESP_LOGI(TAG, "📊 Frame vecchio scartato: %d bytes", fb_old->len);
+        esp_camera_fb_return(fb_old); //riempie il buffer della fotocamera col frame 
+    }
+
+    // Piccolo delay per permettere alla fotocamera di acquisire un nuovo frame
+    vTaskDelay(pdMS_TO_TICKS(100));
+
+    // Acquisisci il frame fresco
     camera_fb_t *fb = esp_camera_fb_get();
     if (!fb)
     {
@@ -397,7 +411,7 @@ static esp_err_t camera_capture_photo(void)
         return ESP_FAIL;
     }
 
-    ESP_LOGI(TAG, "📊 Frame acquisito: %d bytes", fb->len);
+    ESP_LOGI(TAG, "📊 Frame fresco acquisito: %d bytes", fb->len);
 
     // Alloca memoria per salvare la foto
     last_photo_buffer = (uint8_t *)malloc(fb->len);
@@ -499,7 +513,6 @@ esp_err_t webserver_start(void)
     }
 
     ESP_LOGI(TAG, "✅ Webserver avviato con successo");
-    ESP_LOGI(TAG, "🌐 Connettiti a: http://192.168.1.100");
 
     return ESP_OK;
 }
@@ -549,4 +562,13 @@ void webserver_handle_requests(void)
 httpd_handle_t webserver_get_handle(void)
 {
     return server;
+}
+
+// Funzione per impostare l'IP del webserver
+void webserver_set_ip(const char* ip_address)
+{
+    if (ip_address != NULL && strlen(ip_address) < sizeof(current_ip)) {
+        strcpy(current_ip, ip_address);
+        ESP_LOGI(TAG, "🌐 IP del webserver impostato a: %s", current_ip);
+    }
 }

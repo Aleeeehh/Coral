@@ -11,7 +11,6 @@ ESP32CAM_ESPIDF/
 ├── dependencies.lock              # Dipendenze bloccate
 ├── README.md                      # Questo file
 ├── istruzioni.txt                 # Istruzioni d'uso o note
-├── confronto_arduino_espidf.md    # Confronto tra Arduino e ESP-IDF
 ├── main/                          # Applicazione principale
 │   ├── CMakeLists.txt
 │   ├── idf_component.yml
