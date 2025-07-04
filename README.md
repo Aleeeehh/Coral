@@ -52,6 +52,9 @@ idf.py set-target esp32s3
 #Pulisci build
 idf.py fullclean
 
+#Installa dipendenze
+idf.py reconfigure
+
 # Compilazione
 idf.py build
 
@@ -63,7 +66,7 @@ idf.py -p /dev/tty.usbmodemXXXX monitor
 ```
 
 ### Configurazione WiFi
-Modifica `main.cpp` per impostare le credenziali WiFi:
+Modifica `main.cpp` per impostare le credenziali WiFi per il web server:
 ```cpp
 #define WIFI_SSID "Tua_Rete_WiFi"
 #define WIFI_PASS "Tua_Password"
