@@ -11,6 +11,9 @@
 #include "nvs_flash.h"
 #include "webserver.h"
 
+#define WIFI_SSID "Iphone di Prato"
+#define WIFI_PASS "Ciaoo111"
+
 static const char *TAG = "MAIN";
 
 // Un "event group" è un oggetto di FreeRTOS, che gestisce la comunicazione tra task
@@ -106,8 +109,8 @@ extern "C" void app_main(void)
 
     // Configura WiFi
     wifi_config_t wifi_config = {};
-    strcpy((char*)wifi_config.sta.ssid, "Iphone di Prato");
-    strcpy((char*)wifi_config.sta.password, "Ciaoo111");
+    strcpy((char*)wifi_config.sta.ssid, WIFI_SSID);
+    strcpy((char*)wifi_config.sta.password, WIFI_PASS);
 
     ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA)); //imposta il wifi in modalità station (client)
     ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_STA, &wifi_config)); //imposta la configurazione wifi
