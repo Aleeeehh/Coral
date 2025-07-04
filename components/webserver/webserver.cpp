@@ -20,34 +20,36 @@ static size_t last_photo_size = 0; //dimensione della foto, usato size_t per por
 static uint32_t last_photo_timestamp = 0; //timestamp della foto
 static SemaphoreHandle_t camera_mutex = NULL; //semaforo mutex per la fotocamera
 
-// Configurazione fotocamera ESP32CAM (forse saranno da cambiare per esp32-s3 ai camera)
+// Configurazione camera esp32-s3 ai camera
 static camera_config_t camera_config = {
-    .pin_pwdn = 32,
-    .pin_reset = -1,
-    .pin_xclk = 0,
-    .pin_sccb_sda = 26,
-    .pin_sccb_scl = 27,
-    .pin_d7 = 35,
-    .pin_d6 = 34,
-    .pin_d5 = 39,
-    .pin_d4 = 36,
-    .pin_d3 = 21,
-    .pin_d2 = 19,
-    .pin_d1 = 18,
-    .pin_d0 = 5,
-    .pin_vsync = 25,
-    .pin_href = 23,
-    .pin_pclk = 22,
-    .xclk_freq_hz = 20000000,
-    .ledc_timer = LEDC_TIMER_0,
-    .ledc_channel = LEDC_CHANNEL_0,
-    .pixel_format = PIXFORMAT_JPEG,
-    .frame_size = FRAMESIZE_QVGA, // 320x240 per streaming veloce
-    .jpeg_quality = 5,            // Qualità bassa per streaming veloce
-    .fb_count = 1,                // 1 buffer per ridurre latenza
-    .fb_location = CAMERA_FB_IN_DRAM,
-    .grab_mode = CAMERA_GRAB_WHEN_EMPTY,
-    .sccb_i2c_port = 0};
+  .pin_pwdn      = -1,
+  .pin_reset     = -1,
+  .pin_xclk      = 5,
+  .pin_sccb_sda  = 8,
+  .pin_sccb_scl  = 9,
+  .pin_d7        = 4,
+  .pin_d6        = 6,
+  .pin_d5        = 7,
+  .pin_d4        = 14,
+  .pin_d3        = 17,
+  .pin_d2        = 21,
+  .pin_d1        = 18,
+  .pin_d0        = 16,
+  .pin_vsync     = 1,
+  .pin_href      = 2,
+  .pin_pclk      = 15,
+  .xclk_freq_hz  = 20000000,
+  .ledc_timer    = LEDC_TIMER_0,
+  .ledc_channel  = LEDC_CHANNEL_0,
+  .pixel_format  = PIXFORMAT_JPEG,
+  .frame_size    = FRAMESIZE_QVGA,
+  .jpeg_quality  = 10,
+  .fb_count      = 1,
+  .fb_location   = CAMERA_FB_IN_DRAM,
+  .grab_mode     = CAMERA_GRAB_WHEN_EMPTY,
+  .sccb_i2c_port = 0
+};
+
 
 // HTML per la pagina principale
 static const char *main_page_html = R"rawliteral(
@@ -355,13 +357,14 @@ static esp_err_t camera_init(void)
 
     // Inizializza la fotocamera
     esp_err_t ret = esp_camera_init(&camera_config);
-    if (ret != ESP_OK)
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "❌ Camera init failed with error 0x%x: %s", ret, esp_err_to_name(ret));
+    }
+    else
     {
-        ESP_LOGE(TAG, "❌ Errore inizializzazione fotocamera: %s", esp_err_to_name(ret));
-        return ret;
+        ESP_LOGI(TAG, "✅ Camera inizializzata con successo");
     }
 
-    ESP_LOGI(TAG, "✅ Fotocamera inizializzata con successo");
     return ESP_OK;
 }
 

@@ -9,7 +9,6 @@
 #include "esp_event.h"
 #include "esp_log.h"
 #include "nvs_flash.h"
-
 #include "webserver.h"
 
 static const char *TAG = "MAIN";
@@ -69,6 +68,7 @@ static void webserver_task(void *pvParameters)
 extern "C" void app_main(void)
 {
     ESP_LOGI(TAG, "🚀 Avvio ESP32CAM con ESP-IDF e FreeRTOS");
+    //ESP_LOGI("PSRAM", "Detected PSRAM: %d bytes", esp_psram_get_size());
 
     // Inizializza NVS = "Non volatil storage" (Memoria flash dell'esp32)
     //ESP_ERROR_CHECK(funzione()); //esegui funzione() normalmente, e se fallisce, riavvia l'esp32

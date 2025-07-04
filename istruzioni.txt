@@ -4,13 +4,24 @@ COMANDI CLI PLATFORMIO
 - pio device monitor (monitor seriale)
 
 COMANDI CLI ESP-IDF
-- "source ~/.zshrc" quando apri il terminale
-- "idf.py build" compila e basta
+- "source ~/.zshrc" //quando apri il terminale
+- "idf.py build" //compila e basta
+- "idf.py set-target esp32s3" //setta l'hardware
 - "idf.py -p /dev/tty.usbserial-0001 flash" compila e uploda
 - oppure: "idf.py -p /dev/tty.usbserial-110 flash"
+- ai camera: "idf.py -p /dev/tty.usbmodem1101 flash"
 - "idf.py -p /dev/tty.usbserial-0001 monitor" (monitor seriale) ("control + ]" per uscire )
 oppure "idf.py -p /dev/tty.usbserial-110 monitor"
 - "idf.py fullclean" pulizia della build (per ricompilare da zero)
+
+COMANDI CLI NUOVA ESP32-S3
+- "idf.py set-target esp32s3" //setta l'hardware
+- "idf.py fullclean" //pulizia della build
+- "idf.py build" //compila e basta
+- "idf.py -p /dev/tty.usbmodem1101 flash" //compila e flasha
+- "idf.py -p /dev/tty.usbmodem1101 monitor" //monitor seriale
+
+
 
 
 
