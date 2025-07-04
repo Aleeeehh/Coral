@@ -1,4 +1,4 @@
-# ESP32-S3 AI CAMERA con ESP-IDF e FreeRTOS
+# ESP32-S3 AI CAMERA PER EDGEAI
 
 
 ## Struttura del Progetto
@@ -8,24 +8,26 @@ ESP32CAM_ESPIDF/
 ├── CMakeLists.txt                 # Configurazione build principale
 ├── sdkconfig                      # Configurazione ESP-IDF generata
 ├── sdkconfig.defaults             # Configurazioni di default
-├── dependencies.lock              # Dipendenze bloccate
-├── README.md                      # Questo file
+├── partitions.csv                 # Tabella partizioni custom
 ├── istruzioni.txt                 # Istruzioni d'uso o note
+├── README.md                      # Questo file
 ├── main/                          # Applicazione principale
 │   ├── CMakeLists.txt
-│   ├── idf_component.yml
+│   ├── idf_component.yml          # Dipendenze gestite (incluso ESP-DL)
 │   └── main.cpp                   # Entry point dell'applicazione
 │
 ├── components/                    # Componenti custom del progetto
-│   └── webserver/                 # Componente webserver
+│   ├── webserver/                 # Componente webserver REST/HTTP
+│   │   ├── CMakeLists.txt
+│   │   ├── webserver.cpp          # Implementazione webserver
+│   │   └── webserver.h            # Header webserver
+│   └── inference/                 # Componente AI/inferenza
 │       ├── CMakeLists.txt
-│       ├── webserver.cpp          # Implementazione webserver
-│       └── webserver.h            # Header webserver
+│       ├── inference.cpp          # Logica di inferenza AI (COCO/YOLO)
+│       └── include/
+│           └── inference.h        # API per l'inferenza
 │
-├── managed_components/            # Dipendenze gestite da ESP-IDF
-│   ├── espressif__esp32-camera/   # Driver fotocamera e sensori
-│   └── espressif__esp_jpeg/       # Decoder JPEG
-│
+├── managed_components/            # Componenti gestiti da ESP-IDF (ESP-DL, ecc)
 ├── build/                         # Output di compilazione (generato)
 └── .gitignore                     # File da ignorare in git
 ```

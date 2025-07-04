@@ -1,4 +1,5 @@
 #include "webserver.h"
+#include "inference.h"
 #include "esp_log.h"
 #include "esp_http_server.h"
 #include "esp_camera.h"
@@ -13,6 +14,7 @@ static const char *TAG = "WEBSERVER";
 static esp_err_t camera_init(void);
 static esp_err_t camera_capture_photo(void);
 static esp_err_t camera_get_last_photo(uint8_t **buffer, size_t *size);
+static esp_err_t inference_post_handler(httpd_req_t *req);
 
 // Variabili globali per la fotocamera
 static uint8_t *last_photo_buffer = NULL; //buffer di 8 bit per la foto
@@ -45,7 +47,7 @@ static camera_config_t camera_config = {
   .ledc_timer    = LEDC_TIMER_0,
   .ledc_channel  = LEDC_CHANNEL_0,
   .pixel_format  = PIXFORMAT_JPEG,
-  .frame_size    = FRAMESIZE_QVGA, //FRAMESIZE_QXGA 3MP di risoluzione, altrimenti usa FRAMESIZE_QVGA
+  .frame_size    = FRAMESIZE_QVGA, //Minimo assoluto per massimizzare memoria per inferenza
   .jpeg_quality  = 10, //aumento qualità
   .fb_count      = 1,
   .fb_location   = CAMERA_FB_IN_DRAM, //da implementare in PSRAM
@@ -140,6 +142,16 @@ color:
 {
     background-color : #0052a3;
 }
+.inference-btn
+{
+    background-color : #FF6B35;
+color:
+    white;
+}
+.inference-btn : hover
+{
+    background-color : #E55A2B;
+}
 .status
 {
 margin:
@@ -196,31 +208,38 @@ color:
         }
     }
 
-    function updateStatus()
+    function detectFace()
     {
-        fetch('/status')
-            .then(response => response.json())
-            .then(data => {
-                var statusDiv = document.getElementById('status');
-                if (data.connected)
-                {
-                    statusDiv.className = 'status connected';
-                    statusDiv.textContent = '✅ Connesso - IP: ' + data.ip;
-                }
-                else
-                {
-                    statusDiv.className = 'status disconnected';
-                    statusDiv.textContent = '❌ Disconnesso';
-                }
-            })
-            .catch(error => {
-                console.error('Errore aggiornamento status:', error);
-            });
+        console.log('🤖 Avvio rilevamento faccia...');
+        
+        fetch('/inference', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            console.log('✅ Risultato inferenza:', data);
+            
+            if (data.success) {
+                const result = data.face_detected ? '✅ FACCIA RILEVATA' : '❌ NESSUNA FACCIA';
+                const confidence = (data.confidence * 100).toFixed(1);
+                
+                alert(`${result}\nConfidence: ${confidence}%\nTempo: ${data.inference_time_ms}ms\nMemoria: ${data.memory_used_kb}KB`);
+                
+                // Aggiorna la foto
+                updatePhoto();
+            } else {
+                alert('❌ Errore durante l\'inferenza');
+            }
+        })
+        .catch(error => {
+            console.error('❌ Errore inferenza:', error);
+            alert('❌ Errore di connessione');
+        });
     }
 
-    // Aggiorna status ogni 5 secondi
-    setInterval(updateStatus, 5000);
-    updateStatus();
     </script>
 </head>
 <body>
@@ -229,6 +248,7 @@ color:
         <div id="status" class="status">Caricamento...</div>
         <p>
             <a href="/capture"><button class="photo-btn">📸 Scatta Foto</button></a>
+            <button class="inference-btn" onclick="detectFace()">🤖 Detect Face</button>
         </p>
         <div id="photo-container" class="photo-container">
             <h3>Ultima Foto Scattata:</h3>
@@ -324,26 +344,53 @@ static esp_err_t root_get_handler(httpd_req_t *req)
 }
 
 // Handler per lo status del sistema
-static esp_err_t status_get_handler(httpd_req_t *req)
+static esp_err_t inference_post_handler(httpd_req_t *req)
 {
-    ESP_LOGI(TAG, "Richiesta status sistema");
-
-    // Status con IP reale
-    char json_response[256];
-    snprintf(json_response, sizeof(json_response),
-             "{\"connected\":true,\"ip\":\"%s\",\"uptime\":%llu}",
-             current_ip, esp_timer_get_time() / 1000000);
-
-    httpd_resp_set_type(req, "application/json");
-    esp_err_t ret = httpd_resp_send(req, json_response, strlen(json_response));
-
-    if (ret == ESP_OK)
-    {
-        ESP_LOGI(TAG, "Status inviato: %s", json_response);
+    ESP_LOGI(TAG, "Richiesta inferenza ricevuta");
+    
+    // Scatta una nuova foto
+    if (camera_capture_photo() != ESP_OK) {
+        ESP_LOGE(TAG, "Errore durante lo scatto della foto");
+        httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Errore camera");
+        return ESP_FAIL;
     }
-
-    return ret;
+    
+    // Ottieni i dati della foto
+    uint8_t *photo_buffer;
+    size_t photo_size;
+    if (camera_get_last_photo(&photo_buffer, &photo_size) != ESP_OK) {
+        ESP_LOGE(TAG, "Nessuna foto disponibile per l'inferenza");
+        httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Nessuna foto");
+        return ESP_FAIL;
+    }
+    
+    // Esegui inferenza
+    ESP_LOGI(TAG, "Avvio inferenza su immagine di %zu bytes", photo_size);
+    inference_result_t result;
+    if (!inference_process_image(photo_buffer, photo_size, &result)) {
+        ESP_LOGE(TAG, "Errore durante l'inferenza - photo_size: %zu bytes, photo_buffer: %p", 
+                 photo_size, (void*)photo_buffer);
+        ESP_LOGE(TAG, "Controlla: 1) Sistema inferenza inizializzato 2) Dati JPEG validi 3) Memoria disponibile");
+        httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Errore inferenza");
+        return ESP_FAIL;
+    }
+    
+    // Prepara risposta JSON
+    char response[512];
+    snprintf(response, sizeof(response), 
+        "{\"face_detected\":%s,\"confidence\":%.3f,\"inference_time_ms\":%lu,\"memory_used_kb\":%lu,\"success\":true}",
+        result.face_detected ? "true" : "false",
+        result.confidence,
+        result.inference_time_ms,
+        result.memory_used_kb);
+    
+    httpd_resp_set_type(req, "application/json");
+    httpd_resp_send(req, response, strlen(response));
+    
+    return ESP_OK;
 }
+
+
 
 // Funzioni per la gestione della fotocamera
 static esp_err_t camera_init(void)
@@ -468,9 +515,9 @@ static const httpd_uri_t uri_handlers[] = {
      .method = HTTP_GET,
      .handler = photo_get_handler,
      .user_ctx = NULL},
-    {.uri = "/status",
-     .method = HTTP_GET,
-     .handler = status_get_handler,
+    {.uri = "/inference",
+     .method = HTTP_POST,
+     .handler = inference_post_handler,
      .user_ctx = NULL}};
 
 esp_err_t webserver_start(void)

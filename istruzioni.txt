@@ -15,6 +15,7 @@ oppure "idf.py -p /dev/tty.usbserial-110 monitor"
 - "idf.py fullclean" pulizia della build (per ricompilare da zero)
 
 COMANDI CLI NUOVA ESP32-S3
+- "idf.py menuconfig" //menu di configurazione
 - "idf.py set-target esp32s3" //setta l'hardware
 - "idf.py fullclean" //pulizia della build
 - "idf.py build" //compila e basta

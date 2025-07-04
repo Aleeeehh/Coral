@@ -10,6 +10,7 @@
 #include "esp_log.h"
 #include "nvs_flash.h"
 #include "webserver.h"
+#include "inference.h"
 
 #define WIFI_SSID "Iphone di Prato"
 #define WIFI_PASS "Ciaoo111"
@@ -89,6 +90,13 @@ extern "C" void app_main(void)
     }
     ESP_ERROR_CHECK(ret); //se ret != ESP_OK, riavvia l'esp32
 
+    // Inizializza il sistema di inferenza
+    if (!inference_init()) {
+        ESP_LOGE(TAG, "Errore nell'inizializzazione del sistema di inferenza");
+        return;
+    }
+    ESP_LOGI(TAG, "Sistema di inferenza inizializzato con successo");
+
     // Crea event group per WiFi
     wifi_event_group = xEventGroupCreate(); //crea un event group per la connessione WiFi
     
@@ -124,8 +132,8 @@ extern "C" void app_main(void)
 
     ESP_LOGI(TAG, "Connessione WiFi in corso...");
 
-    // Crea un task per il webserver, eseguendolo sul core 0, con priorità 2 (la più alta), assegnandogli 8192 byte di stack e usando il task handle webserver_task_handle
-    xTaskCreatePinnedToCore(webserver_task, "webserver_task", 8192, NULL, 2, &webserver_task_handle, 0);
+    // Crea un task per il webserver, eseguendolo sul core 0, con priorità 2 (la più alta), assegnandogli 65536 byte di stack e usando il task handle webserver_task_handle
+    xTaskCreatePinnedToCore(webserver_task, "webserver_task", 65536, NULL, 2, &webserver_task_handle, 0);
 
     ESP_LOGI(TAG, "Tutti i task creati e avviati");
     ESP_LOGI(TAG, "Webserver disponibile su http://%s", IPSTR);
