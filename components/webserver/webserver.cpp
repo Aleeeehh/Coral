@@ -242,7 +242,7 @@ color:
 // Handler per la pagina principale
 static esp_err_t root_get_handler(httpd_req_t *req)
 {
-    ESP_LOGI(TAG, "🏠 Richiesta pagina principale");
+    ESP_LOGI(TAG, "Richiesta pagina principale");
 
     httpd_resp_set_type(req, "text/html");
     httpd_resp_set_hdr(req, "Content-Encoding", "identity");
@@ -251,11 +251,11 @@ static esp_err_t root_get_handler(httpd_req_t *req)
     esp_err_t ret = httpd_resp_send(req, main_page_html, strlen(main_page_html));
     if (ret != ESP_OK)
     {
-        ESP_LOGE(TAG, "❌ Errore invio pagina principale: %s", esp_err_to_name(ret));
+        ESP_LOGE(TAG, "Errore invio pagina principale: %s", esp_err_to_name(ret));
     }
     else
     {
-        ESP_LOGI(TAG, "✅ Pagina principale inviata");
+        ESP_LOGI(TAG, "Pagina principale inviata");
     }
 
     return ret;
@@ -264,13 +264,13 @@ static esp_err_t root_get_handler(httpd_req_t *req)
     // Handler per lo scatto foto
     static esp_err_t capture_get_handler(httpd_req_t *req)
     {
-        ESP_LOGI(TAG, "📸 Richiesta scatto foto");
+        ESP_LOGI(TAG, "Richiesta scatto foto");
 
         // Scatta la foto
         esp_err_t ret = camera_capture_photo();
         if (ret != ESP_OK)
         {
-            ESP_LOGE(TAG, "❌ Errore scatto foto: %s", esp_err_to_name(ret));
+            ESP_LOGE(TAG, "Errore scatto foto: %s", esp_err_to_name(ret));
             httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Errore scatto foto");
             return ESP_FAIL;
         }
@@ -286,7 +286,7 @@ static esp_err_t root_get_handler(httpd_req_t *req)
     // Handler per la visualizzazione foto
     static esp_err_t photo_get_handler(httpd_req_t *req)
     {
-        ESP_LOGI(TAG, "🖼️ Richiesta visualizzazione foto");
+        ESP_LOGI(TAG, "Richiesta visualizzazione foto");
 
     uint8_t *buffer;
     size_t size;
@@ -294,12 +294,12 @@ static esp_err_t root_get_handler(httpd_req_t *req)
     esp_err_t ret = camera_get_last_photo(&buffer, &size);
     if (ret != ESP_OK)
     {
-        ESP_LOGE(TAG, "❌ Nessuna foto disponibile: %s", esp_err_to_name(ret));
+        ESP_LOGE(TAG, "Nessuna foto disponibile: %s", esp_err_to_name(ret));
         httpd_resp_send_err(req, HTTPD_404_NOT_FOUND, "Nessuna foto disponibile");
         return ESP_FAIL;
     }
 
-    ESP_LOGI(TAG, "📤 Invio foto: %d bytes", size);
+    ESP_LOGI(TAG, "Invio foto: %d bytes", size);
 
     // Imposta header per evitare caching
     httpd_resp_set_type(req, "image/jpeg");
@@ -313,11 +313,11 @@ static esp_err_t root_get_handler(httpd_req_t *req)
 
     if (ret == ESP_OK)
     {
-        ESP_LOGI(TAG, "✅ Foto inviata completamente: %d bytes", size);
+        ESP_LOGI(TAG, "Foto inviata completamente: %d bytes", size);
     }
     else
     {
-        ESP_LOGE(TAG, "❌ Errore invio foto: %s", esp_err_to_name(ret));
+        ESP_LOGE(TAG, "Errore invio foto: %s", esp_err_to_name(ret));
     }
 
     return ret;
@@ -326,7 +326,7 @@ static esp_err_t root_get_handler(httpd_req_t *req)
 // Handler per lo status del sistema
 static esp_err_t status_get_handler(httpd_req_t *req)
 {
-    ESP_LOGI(TAG, "📊 Richiesta status sistema");
+    ESP_LOGI(TAG, "Richiesta status sistema");
 
     // Status con IP reale
     char json_response[256];
@@ -339,7 +339,7 @@ static esp_err_t status_get_handler(httpd_req_t *req)
 
     if (ret == ESP_OK)
     {
-        ESP_LOGI(TAG, "✅ Status inviato: %s", json_response);
+        ESP_LOGI(TAG, "Status inviato: %s", json_response);
     }
 
     return ret;
@@ -348,24 +348,24 @@ static esp_err_t status_get_handler(httpd_req_t *req)
 // Funzioni per la gestione della fotocamera
 static esp_err_t camera_init(void)
 {
-    ESP_LOGI(TAG, "🔧 Inizializzazione fotocamera ESP32CAM...");
+    ESP_LOGI(TAG, "Inizializzazione fotocamera ESP32CAM...");
 
     // Crea un semaforo mutex (inizializzato ad 1) per l'accesso thread-safe sulla fotocamera
     camera_mutex = xSemaphoreCreateMutex();
     if (camera_mutex == NULL)
     {
-        ESP_LOGE(TAG, "❌ Errore creazione mutex fotocamera");
+        ESP_LOGE(TAG, "Errore creazione mutex fotocamera");
         return ESP_FAIL;
     }
 
     // Inizializza la fotocamera
     esp_err_t ret = esp_camera_init(&camera_config);
     if (ret != ESP_OK) {
-        ESP_LOGE(TAG, "❌ Camera init failed with error 0x%x: %s", ret, esp_err_to_name(ret));
+        ESP_LOGE(TAG, "Camera init failed with error 0x%x: %s", ret, esp_err_to_name(ret));
     }
     else
     {
-        ESP_LOGI(TAG, "✅ Camera inizializzata con successo");
+        ESP_LOGI(TAG, "Camera inizializzata con successo");
     }
 
     return ESP_OK;
@@ -373,29 +373,29 @@ static esp_err_t camera_init(void)
 
 static esp_err_t camera_capture_photo(void)
 {
-    ESP_LOGI(TAG, "📸 Acquisizione foto...");
+    ESP_LOGI(TAG, "Acquisizione foto...");
 
     //attende 5 secondi e prendere il mutex, se non riesce dopo 5sec ritorna errore
     if (xSemaphoreTake(camera_mutex, pdMS_TO_TICKS(5000)) != pdTRUE)
     {
-        ESP_LOGE(TAG, "❌ Timeout acquisizione mutex fotocamera");
+        ESP_LOGE(TAG, " Timeout acquisizione mutex fotocamera");
         return ESP_ERR_TIMEOUT;
     }
 
     // Libera memoria foto precedente
     if (last_photo_buffer != NULL)
     {
-        ESP_LOGI(TAG, "🗑️ Liberazione memoria foto precedente");
+        ESP_LOGI(TAG, "Liberazione memoria foto precedente");
         free(last_photo_buffer);
         last_photo_buffer = NULL;
         last_photo_size = 0;
     }
 
     // Scarta il primo frame (potrebbe essere vecchio)
-    ESP_LOGI(TAG, "🗑️ Scarto primo frame (potrebbe essere vecchio)...");
+    ESP_LOGI(TAG, "Scarto primo frame (potrebbe essere vecchio)...");
     camera_fb_t *fb_old = esp_camera_fb_get(); //acquisisce il frame 
     if (fb_old) {
-        ESP_LOGI(TAG, "📊 Frame vecchio scartato: %d bytes", fb_old->len);
+        ESP_LOGI(TAG, "Frame vecchio scartato: %d bytes", fb_old->len);
         esp_camera_fb_return(fb_old); //riempie il buffer della fotocamera col frame 
     }
 
@@ -406,18 +406,18 @@ static esp_err_t camera_capture_photo(void)
     camera_fb_t *fb = esp_camera_fb_get();
     if (!fb)
     {
-        ESP_LOGE(TAG, "❌ Errore acquisizione frame fotocamera");
+        ESP_LOGE(TAG, "Errore acquisizione frame fotocamera");
         xSemaphoreGive(camera_mutex);
         return ESP_FAIL;
     }
 
-    ESP_LOGI(TAG, "📊 Frame fresco acquisito: %d bytes", fb->len);
+    ESP_LOGI(TAG, "Frame fresco acquisito: %d bytes", fb->len);
 
     // Alloca memoria per salvare la foto
     last_photo_buffer = (uint8_t *)malloc(fb->len);
     if (last_photo_buffer == NULL)
     {
-        ESP_LOGE(TAG, "❌ Errore allocazione memoria per foto");
+        ESP_LOGE(TAG, "Errore allocazione memoria per foto");
         esp_camera_fb_return(fb);
         xSemaphoreGive(camera_mutex);
         return ESP_ERR_NO_MEM;
@@ -432,7 +432,7 @@ static esp_err_t camera_capture_photo(void)
     // Restituisci il frame buffer
     esp_camera_fb_return(fb);
 
-    ESP_LOGI(TAG, "✅ Foto salvata: %d bytes", last_photo_size);
+    ESP_LOGI(TAG, "Foto salvata: %d bytes", last_photo_size);
 
     xSemaphoreGive(camera_mutex); // rilascia il mutex, permettendo a altri task di accedere alla fotocamera
     return ESP_OK;
@@ -475,7 +475,7 @@ static const httpd_uri_t uri_handlers[] = {
 
 esp_err_t webserver_start(void)
 {
-    ESP_LOGI(TAG, "🚀 Avvio webserver HTTP...");
+    ESP_LOGI(TAG, "Avvio webserver HTTP...");
 
     // Configurazione server HTTP
     httpd_config_t config = HTTPD_DEFAULT_CONFIG();
@@ -487,7 +487,7 @@ esp_err_t webserver_start(void)
     esp_err_t ret = camera_init();
     if (ret != ESP_OK)
     {
-        ESP_LOGE(TAG, "❌ Errore inizializzazione fotocamera");
+        ESP_LOGE(TAG, "Errore inizializzazione fotocamera");
         return ret;
     }
 
@@ -495,7 +495,7 @@ esp_err_t webserver_start(void)
     ret = httpd_start(&server, &config);
     if (ret != ESP_OK)
     {
-        ESP_LOGE(TAG, "❌ Errore avvio server HTTP: %s", esp_err_to_name(ret));
+        ESP_LOGE(TAG, "Errore avvio server HTTP: %s", esp_err_to_name(ret));
         return ret;
     }
 
@@ -505,14 +505,14 @@ esp_err_t webserver_start(void)
         ret = httpd_register_uri_handler(server, &uri_handlers[i]);
         if (ret != ESP_OK)
         {
-            ESP_LOGE(TAG, "❌ Errore registrazione handler %s: %s",
+            ESP_LOGE(TAG, "Errore registrazione handler %s: %s",
                      uri_handlers[i].uri, esp_err_to_name(ret));
             httpd_stop(server);
             return ret;
         }
     }
 
-    ESP_LOGI(TAG, "✅ Webserver avviato con successo");
+    ESP_LOGI(TAG, "Webserver avviato con successo");
 
     return ESP_OK;
 }
@@ -521,7 +521,7 @@ esp_err_t webserver_stop(void)
 {
     if (server != NULL)
     {
-        ESP_LOGI(TAG, "🛑 Arresto webserver...");
+        ESP_LOGI(TAG, "Arresto webserver...");
 
         // Libera memoria foto
         if (last_photo_buffer != NULL)
@@ -544,7 +544,7 @@ esp_err_t webserver_stop(void)
 
         if (ret == ESP_OK)
         {
-            ESP_LOGI(TAG, "✅ Webserver arrestato");
+            ESP_LOGI(TAG, "Webserver arrestato");
         }
 
         return ret;
@@ -569,6 +569,6 @@ void webserver_set_ip(const char* ip_address)
 {
     if (ip_address != NULL && strlen(ip_address) < sizeof(current_ip)) {
         strcpy(current_ip, ip_address);
-        ESP_LOGI(TAG, "🌐 IP del webserver impostato a: %s", current_ip);
+        ESP_LOGI(TAG, "IP del webserver impostato a: %s", current_ip);
     }
 }

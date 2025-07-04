@@ -76,7 +76,7 @@ static void webserver_task(void *pvParameters)
 //inizio dell'applicazione
 extern "C" void app_main(void)
 {
-    ESP_LOGI(TAG, "🚀 Avvio ESP32CAM con ESP-IDF e FreeRTOS");
+    ESP_LOGI(TAG, "Avvio ESP32CAM con ESP-IDF e FreeRTOS");
     //ESP_LOGI("PSRAM", "Detected PSRAM: %d bytes", esp_psram_get_size());
 
     // Inizializza NVS = "Non volatil storage" (Memoria flash dell'esp32)
@@ -122,11 +122,11 @@ extern "C" void app_main(void)
     ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_STA, &wifi_config)); //imposta la configurazione wifi
     ESP_ERROR_CHECK(esp_wifi_start()); //avvia il wifi
 
-    ESP_LOGI(TAG, "📡 Connessione WiFi in corso...");
+    ESP_LOGI(TAG, "Connessione WiFi in corso...");
 
     // Crea un task per il webserver, eseguendolo sul core 0, con priorità 2 (la più alta), assegnandogli 8192 byte di stack e usando il task handle webserver_task_handle
     xTaskCreatePinnedToCore(webserver_task, "webserver_task", 8192, NULL, 2, &webserver_task_handle, 0);
 
-    ESP_LOGI(TAG, "✅ Tutti i task creati e avviati");
-    ESP_LOGI(TAG, "🌐 Webserver disponibile su http://[IP_ESP32]");
+    ESP_LOGI(TAG, "Tutti i task creati e avviati");
+    ESP_LOGI(TAG, "Webserver disponibile su http://%s", IPSTR);
 }
