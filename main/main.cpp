@@ -8,6 +8,7 @@
 #include "esp_wifi.h"
 #include "esp_event.h"
 #include "esp_log.h"
+#include "esp_heap_caps.h"
 #include "nvs_flash.h"
 #include "webserver.h"
 #include "inference.h"
@@ -16,6 +17,8 @@
 #define WIFI_PASS "Ciaoo111"
 
 static const char *TAG = "MAIN";
+
+// "ESP_ERROR_CHECK(x)" = esegui x normalmente, e se fallisce, riavvia l'esp32
 
 // Un "event group" è un oggetto di FreeRTOS, che gestisce la comunicazione tra task
 // utilizzando i bit di flag per segnalare certi stati (bit1="wifi connesso", bit2= "IP ottenuto", etc..)
@@ -63,14 +66,21 @@ static void webserver_task(void *pvParameters)
     // Aspetta che il bit di connessione sia impostato nell'event group, lo fa aspettare(bloccante) fino a che non è impostato
     xEventGroupWaitBits(wifi_event_group, WIFI_CONNECTED_BIT, false, true, portMAX_DELAY);
 
-    // Avvia il webserver
+    // Inizializza il sistema di inferenza dopo la connessione WiFi (potremmo creare una task dedicata)
+    ESP_LOGI(TAG, "Inizializzazione sistema di inferenza...");
+    if (!inference_init()) {
+        ESP_LOGE(TAG, "Errore inizializzazione sistema di inferenza");
+        vTaskDelete(NULL);
+        return;
+    }
+    ESP_LOGI(TAG, "Sistema di inferenza inizializzato con successo");
+    
+
+    //lancia il webserver
     webserver_start();
 
-    while (1)
-    {
-        webserver_handle_requests();
-        vTaskDelay(pdMS_TO_TICKS(10)); // 10ms delay
-    }
+    // Poi termina il task, il task del webserver è ora indipendente
+    vTaskDelete(NULL);
 }
 
 
@@ -78,24 +88,23 @@ static void webserver_task(void *pvParameters)
 extern "C" void app_main(void)
 {
     ESP_LOGI(TAG, "Avvio ESP32CAM con ESP-IDF e FreeRTOS");
-    //ESP_LOGI("PSRAM", "Detected PSRAM: %d bytes", esp_psram_get_size());
+
+    //visualizza la PSRAM attuale
+    ESP_LOGI("PSRAM", "Detected PSRAM: %zu bytes", heap_caps_get_free_size(MALLOC_CAP_SPIRAM));
+    
+    // Informazioni aggiuntive sulla memoria
+    ESP_LOGI("MEMORY", "Free heap: %lu bytes", esp_get_free_heap_size());
+    ESP_LOGI("MEMORY", "Largest free block: %lu bytes", heap_caps_get_largest_free_block(MALLOC_CAP_8BIT));
+    ESP_LOGI("MEMORY", "Free PSRAM: %zu bytes", heap_caps_get_free_size(MALLOC_CAP_SPIRAM));
 
     // Inizializza NVS = "Non volatil storage" (Memoria flash dell'esp32)
-    //ESP_ERROR_CHECK(funzione()); //esegui funzione() normalmente, e se fallisce, riavvia l'esp32
     esp_err_t ret = nvs_flash_init();
     if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND) //se c'è un problema con lo storage
     {
-        ESP_ERROR_CHECK(nvs_flash_erase()); //lancia nvs_flash_erase() normalmente, e se fallisce, riavvia l'esp32
+        ESP_ERROR_CHECK(nvs_flash_erase()); //prova a svuotare la flash
         ret = nvs_flash_init(); //prova a rifare l'inizializzazione dello storage (pulendolo)
     }
     ESP_ERROR_CHECK(ret); //se ret != ESP_OK, riavvia l'esp32
-
-    // Inizializza il sistema di inferenza
-    if (!inference_init()) {
-        ESP_LOGE(TAG, "Errore nell'inizializzazione del sistema di inferenza");
-        return;
-    }
-    ESP_LOGI(TAG, "Sistema di inferenza inizializzato con successo");
 
     // Crea event group per WiFi
     wifi_event_group = xEventGroupCreate(); //crea un event group per la connessione WiFi
@@ -132,7 +141,7 @@ extern "C" void app_main(void)
 
     ESP_LOGI(TAG, "Connessione WiFi in corso...");
 
-    // Crea un task per il webserver, eseguendolo sul core 0, con priorità 2 (la più alta), assegnandogli 65536 byte di stack e usando il task handle webserver_task_handle
+    // Crea un task per il webserver, eseguendolo sul core 0, con priorità 2 (la più alta), assegnandogli 65536 byte di stack e usa webserver_task come handler
     xTaskCreatePinnedToCore(webserver_task, "webserver_task", 65536, NULL, 2, &webserver_task_handle, 0);
 
     ESP_LOGI(TAG, "Tutti i task creati e avviati");

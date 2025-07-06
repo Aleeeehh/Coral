@@ -47,10 +47,10 @@ static camera_config_t camera_config = {
   .ledc_timer    = LEDC_TIMER_0,
   .ledc_channel  = LEDC_CHANNEL_0,
   .pixel_format  = PIXFORMAT_JPEG,
-  .frame_size    = FRAMESIZE_QVGA, //Minimo assoluto per massimizzare memoria per inferenza
+  .frame_size    = FRAMESIZE_QVGA, //Possiamo aumentarlo!!!
   .jpeg_quality  = 10, //aumento qualità
   .fb_count      = 1,
-  .fb_location   = CAMERA_FB_IN_DRAM, //da implementare in PSRAM
+  .fb_location   = CAMERA_FB_IN_PSRAM, //Usa PSRAM per i buffer della fotocamera
   .grab_mode     = CAMERA_GRAB_WHEN_EMPTY,
   .sccb_i2c_port = 0
 };
@@ -267,7 +267,7 @@ static esp_err_t root_get_handler(httpd_req_t *req)
     httpd_resp_set_type(req, "text/html");
     httpd_resp_set_hdr(req, "Content-Encoding", "identity");
 
-    //invia l'html dal esp32 al browser 
+    //invia l'html dall' esp32 al browser 
     esp_err_t ret = httpd_resp_send(req, main_page_html, strlen(main_page_html));
     if (ret != ESP_OK)
     {
@@ -281,8 +281,8 @@ static esp_err_t root_get_handler(httpd_req_t *req)
     return ret;
 }
 
-    // Handler per lo scatto foto
-    static esp_err_t capture_get_handler(httpd_req_t *req)
+// Handler per lo scatto foto
+static esp_err_t capture_get_handler(httpd_req_t *req)
     {
         ESP_LOGI(TAG, "Richiesta scatto foto");
 
@@ -303,8 +303,8 @@ static esp_err_t root_get_handler(httpd_req_t *req)
         return ESP_OK;
     }
 
-    // Handler per la visualizzazione foto
-    static esp_err_t photo_get_handler(httpd_req_t *req)
+// Handler per la visualizzazione foto
+static esp_err_t photo_get_handler(httpd_req_t *req)
     {
         ESP_LOGI(TAG, "Richiesta visualizzazione foto");
 
@@ -328,7 +328,7 @@ static esp_err_t root_get_handler(httpd_req_t *req)
     httpd_resp_set_hdr(req, "Expires", "0");
     httpd_resp_set_hdr(req, "Content-Disposition", "inline; filename=capture.jpg");
 
-    // Invia i dati
+    // Invia la foto al browser per visualizzarla
     ret = httpd_resp_send(req, (const char *)buffer, size);
 
     if (ret == ESP_OK)
@@ -343,7 +343,7 @@ static esp_err_t root_get_handler(httpd_req_t *req)
     return ret;
 }
 
-// Handler per lo status del sistema
+// Handler per inferenza
 static esp_err_t inference_post_handler(httpd_req_t *req)
 {
     ESP_LOGI(TAG, "Richiesta inferenza ricevuta");
@@ -390,9 +390,7 @@ static esp_err_t inference_post_handler(httpd_req_t *req)
     return ESP_OK;
 }
 
-
-
-// Funzioni per la gestione della fotocamera
+// Inizializza fotocamera e mutex corrispondente per mutua esclusione
 static esp_err_t camera_init(void)
 {
     ESP_LOGI(TAG, "Inizializzazione fotocamera ESP32CAM...");
@@ -418,6 +416,7 @@ static esp_err_t camera_init(void)
     return ESP_OK;
 }
 
+//prendi il mutex per usare la camera, e salva in memoria la foto del buffer di fotocamera
 static esp_err_t camera_capture_photo(void)
 {
     ESP_LOGI(TAG, "Acquisizione foto...");
@@ -485,7 +484,7 @@ static esp_err_t camera_capture_photo(void)
     return ESP_OK;
 }
 
-//TODO: questa funzione è da rivedere, vedo sempre una foto vecchia, e non la corrente
+// ritorna la foto più recentemente scatta
 static esp_err_t camera_get_last_photo(uint8_t **buffer, size_t *size)
 {
     if (last_photo_buffer == NULL || last_photo_size == 0)
@@ -503,11 +502,11 @@ static httpd_handle_t server = NULL;
 
 // Tabella degli URI handler
 static const httpd_uri_t uri_handlers[] = {
-    {.uri = "/",
+    {.uri = "/", //manda il frontend al browser
      .method = HTTP_GET,
      .handler = root_get_handler,
      .user_ctx = NULL},
-    {.uri = "/capture",
+    {.uri = "/capture", //salva la foto nel buffer della fotocamera, in last_photo_buffer
      .method = HTTP_GET,
      .handler = capture_get_handler,
      .user_ctx = NULL},
@@ -520,6 +519,8 @@ static const httpd_uri_t uri_handlers[] = {
      .handler = inference_post_handler,
      .user_ctx = NULL}};
 
+//chiamata da main.cpp, avvia una task che lancia il webserver, inizializza la fotocamera e un suo
+//relativo mutex, poi registra tutti le route con relativi handlers
 esp_err_t webserver_start(void)
 {
     ESP_LOGI(TAG, "Avvio webserver HTTP...");
@@ -538,7 +539,8 @@ esp_err_t webserver_start(void)
         return ret;
     }
 
-    // Avvia server HTTP
+    // Avvia server HTTP con la sua relativa task, questa task rimarrà poi in background
+    //per ricevere e gestire tutte le chiamate HTTP da browser
     ret = httpd_start(&server, &config);
     if (ret != ESP_OK)
     {
@@ -562,53 +564,6 @@ esp_err_t webserver_start(void)
     ESP_LOGI(TAG, "Webserver avviato con successo");
 
     return ESP_OK;
-}
-
-esp_err_t webserver_stop(void)
-{
-    if (server != NULL)
-    {
-        ESP_LOGI(TAG, "Arresto webserver...");
-
-        // Libera memoria foto
-        if (last_photo_buffer != NULL)
-        {
-            free(last_photo_buffer);
-            last_photo_buffer = NULL;
-            last_photo_size = 0;
-        }
-
-        // Elimina mutex
-        if (camera_mutex != NULL)
-        {
-            vSemaphoreDelete(camera_mutex);
-            camera_mutex = NULL;
-        }
-
-        // Ferma server
-        esp_err_t ret = httpd_stop(server);
-        server = NULL;
-
-        if (ret == ESP_OK)
-        {
-            ESP_LOGI(TAG, "Webserver arrestato");
-        }
-
-        return ret;
-    }
-
-    return ESP_OK;
-}
-
-void webserver_handle_requests(void)
-{
-    // Il server HTTP gestisce automaticamente le richieste
-    // Questa funzione può essere usata per logica aggiuntiva se necessario
-}
-
-httpd_handle_t webserver_get_handle(void)
-{
-    return server;
 }
 
 // Funzione per impostare l'IP del webserver

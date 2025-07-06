@@ -8,7 +8,7 @@ ESP32CAM_ESPIDF/
 ├── CMakeLists.txt                 # Configurazione build principale
 ├── sdkconfig                      # Configurazione ESP-IDF generata
 ├── sdkconfig.defaults             # Configurazioni di default
-├── partitions.csv                 # Tabella partizioni custom
+├── partitions.csv                 # Tabella partizioni custom (per modelli)
 ├── istruzioni.txt                 # Istruzioni d'uso o note
 ├── README.md                      # Questo file
 ├── main/                          # Applicazione principale
@@ -23,13 +23,13 @@ ESP32CAM_ESPIDF/
 │   │   └── webserver.h            # Header webserver
 │   └── inference/                 # Componente AI/inferenza
 │       ├── CMakeLists.txt
-│       ├── inference.cpp          # Logica di inferenza AI (COCO/YOLO)
+│       ├── inference.cpp          # Logica di inferenza AI
 │       └── include/
 │           └── inference.h        # API per l'inferenza
 │
-├── managed_components/            # Componenti gestiti da ESP-IDF (ESP-DL, ecc)
+├── managed_components/            # Componenti/dipendenze gestiti da ESP-IDF (ESP-DL, ecc)
 ├── build/                         # Output di compilazione (generato)
-└── .gitignore                     # File da ignorare in git
+└── .gitignore                     # Files da ignorare per git
 ```
 
 
@@ -37,7 +37,7 @@ ESP32CAM_ESPIDF/
 - `GET /` - Pagina principale con interfaccia web
 - `GET /capture` - Scatta una nuova foto
 - `GET /photo` - Visualizza l'ultima foto scattata
-- `GET /status` - Status del sistema (JSON)
+- `POST /photo` - Inferenza semplice di visione
 
 
 ##  Compilazione e Flash

@@ -16,4 +16,4 @@ dependencies:
   #   public: true
   espressif/esp32-camera: '*'
   espressif/esp-dl: '*'
-  espressif/coco_detect: '*'
+  espressif/human_face_detect: '*'
