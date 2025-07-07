@@ -15,6 +15,8 @@ typedef struct {
     float confidence;
     uint32_t inference_time_ms;
     uint32_t memory_used_kb;
+    uint32_t bounding_boxes[4];
+    uint32_t num_faces;
 } inference_result_t;
 
 // Struttura per le statistiche del sistema

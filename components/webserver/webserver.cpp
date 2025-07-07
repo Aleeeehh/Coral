@@ -7,6 +7,8 @@
 #include "freertos/task.h"
 #include "freertos/semphr.h"
 #include "esp_timer.h"
+#include <fstream>
+#include <sstream>
 
 static const char *TAG = "WEBSERVER";
 
@@ -21,6 +23,9 @@ static uint8_t *last_photo_buffer = NULL; //buffer di 8 bit per la foto
 static size_t last_photo_size = 0; //dimensione della foto, usato size_t per portabilità (valori diversi in base a tipo di esp, in questo caso "32 bit")
 static uint32_t last_photo_timestamp = 0; //timestamp della foto
 static SemaphoreHandle_t camera_mutex = NULL; //semaforo mutex per la fotocamera
+
+//server
+static httpd_handle_t server = NULL;
 
 // Variabile globale per l'IP
 static char current_ip[16] = "0.0.0.0"; // IP di default
@@ -48,12 +53,15 @@ static camera_config_t camera_config = {
   .ledc_channel  = LEDC_CHANNEL_0,
   .pixel_format  = PIXFORMAT_JPEG,
   .frame_size    = FRAMESIZE_QVGA, //Possiamo aumentarlo!!!
-  .jpeg_quality  = 10, //aumento qualità
+  .jpeg_quality  = 10, //possiamo aumentare la qualità
   .fb_count      = 1,
   .fb_location   = CAMERA_FB_IN_PSRAM, //Usa PSRAM per i buffer della fotocamera
   .grab_mode     = CAMERA_GRAB_WHEN_EMPTY,
   .sccb_i2c_port = 0
 };
+
+
+
 
 
 // HTML per la pagina principale
@@ -177,6 +185,13 @@ color:
     border:
         1px solid #f5c6cb;
     }
+    #face-overlay {
+    position: absolute;
+    border: 3px solid white;
+    box-shadow: 0 0 5px rgba(0,0,0,0.5);
+    pointer-events: none; 
+    z-index: 10;
+}
     </style>
         <script>
             window.onload = function()
@@ -226,8 +241,14 @@ color:
                 const result = data.face_detected ? '✅ FACCIA RILEVATA' : '❌ NESSUNA FACCIA';
                 const confidence = (data.confidence * 100).toFixed(1);
                 
-                alert(`${result}\nConfidence: ${confidence}%\nTempo: ${data.inference_time_ms}ms\nMemoria: ${data.memory_used_kb}KB`);
+                alert(`${result}\nConfidence: ${confidence}%\nTempo: ${data.inference_time_ms}ms\nMemoria: ${data.memory_used_kb}KB\nBounding Box: [${data.bounding_box[0]}, ${data.bounding_box[1]}, ${data.bounding_box[2]}, ${data.bounding_box[3]}]`);
                 
+             // Disegna il rettangolo se una faccia è stata rilevata
+             if (data.face_detected && data.bounding_box) {
+                drawFaceBox(data.bounding_box);
+             } else {
+                hideFaceBox();
+             }
                 // Aggiorna la foto
                 updatePhoto();
             } else {
@@ -240,6 +261,47 @@ color:
         });
     }
 
+    function drawFaceBox(boundingBox) {
+        const overlay = document.getElementById('face-overlay');
+        const img = document.getElementById('photo');
+        const container = document.getElementById('photo-container');
+        
+        if (img.complete && img.naturalWidth > 0) {
+            // Ottieni le posizioni relative
+            const imgRect = img.getBoundingClientRect();
+            const containerRect = container.getBoundingClientRect();
+            
+            // Calcola offset del contenitore
+            const offsetX = imgRect.left - containerRect.left;
+            const offsetY = imgRect.top - containerRect.top;
+            
+            // Calcola scala
+            const scaleX = imgRect.width / img.naturalWidth;
+            const scaleY = imgRect.height / img.naturalHeight;
+            
+            // Applica coordinate
+            const x = (boundingBox[0] * scaleX) + offsetX;
+            const y = (boundingBox[1] * scaleY) + offsetY;
+            const width = (boundingBox[2] - boundingBox[0]) * scaleX;
+            const height = (boundingBox[3] - boundingBox[1]) * scaleY;
+            
+            overlay.style.left = x + 'px';
+            overlay.style.top = y + 'px';
+            overlay.style.width = width + 'px';
+            overlay.style.height = height + 'px';
+            overlay.style.display = 'block';
+            
+            console.log(`🎯 Debug: imgRect(${imgRect.left},${imgRect.top}), containerRect(${containerRect.left},${containerRect.top})`);
+            console.log(`🔍 Offset: (${offsetX}, ${offsetY}), Scale: (${scaleX}, ${scaleY})`);
+        }
+    }
+
+
+function hideFaceBox() {
+    const overlay = document.getElementById('face-overlay');
+    overlay.style.display = 'none';
+}
+
     </script>
 </head>
 <body>
@@ -250,9 +312,10 @@ color:
             <a href="/capture"><button class="photo-btn">📸 Scatta Foto</button></a>
             <button class="inference-btn" onclick="detectFace()">🤖 Detect Face</button>
         </p>
-        <div id="photo-container" class="photo-container">
+        <div id="photo-container" class="photo-container" style="position: relative;">
             <h3>Ultima Foto Scattata:</h3>
             <img id="photo" style="max-width: 100%; max-height: 400px;">
+            <div id="face-overlay" style="position: absolute; border: 3px solid white; display: none;"></div>
         </div>
     </div>
 </body>
@@ -370,7 +433,7 @@ static esp_err_t inference_post_handler(httpd_req_t *req)
     if (!inference_process_image(photo_buffer, photo_size, &result)) {
         ESP_LOGE(TAG, "Errore durante l'inferenza - photo_size: %zu bytes, photo_buffer: %p", 
                  photo_size, (void*)photo_buffer);
-        ESP_LOGE(TAG, "Controlla: 1) Sistema inferenza inizializzato 2) Dati JPEG validi 3) Memoria disponibile");
+        ESP_LOGE(TAG, "Da controllare: 1) Sistema inferenza inizializzato 2) Dati JPEG validi 3) Memoria disponibile");
         httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Errore inferenza");
         return ESP_FAIL;
     }
@@ -378,11 +441,16 @@ static esp_err_t inference_post_handler(httpd_req_t *req)
     // Prepara risposta JSON
     char response[512];
     snprintf(response, sizeof(response), 
-        "{\"face_detected\":%s,\"confidence\":%.3f,\"inference_time_ms\":%lu,\"memory_used_kb\":%lu,\"success\":true}",
+        "{\"face_detected\":%s,\"confidence\":%.3f,\"inference_time_ms\":%lu,\"memory_used_kb\":%lu,\"bounding_box\":[%ld,%ld,%ld,%ld],\"num_faces\":%lu,\"success\":true}",
         result.face_detected ? "true" : "false",
         result.confidence,
         result.inference_time_ms,
-        result.memory_used_kb);
+        result.memory_used_kb,
+        result.bounding_boxes[0],
+        result.bounding_boxes[1],
+        result.bounding_boxes[2],
+        result.bounding_boxes[3],
+        result.num_faces);
     
     httpd_resp_set_type(req, "application/json");
     httpd_resp_send(req, response, strlen(response));
@@ -496,9 +564,6 @@ static esp_err_t camera_get_last_photo(uint8_t **buffer, size_t *size)
     *size = last_photo_size;
     return ESP_OK;
 }
-
-// Variabili globali per il server HTTP
-static httpd_handle_t server = NULL;
 
 // Tabella degli URI handler
 static const httpd_uri_t uri_handlers[] = {

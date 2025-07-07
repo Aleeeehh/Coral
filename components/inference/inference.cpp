@@ -65,23 +65,38 @@ bool inference_process_image(const uint8_t* jpeg_data, size_t jpeg_size, inferen
     // Esegui face detection
     bool face_detected = false;
     float max_confidence = 0.0f;
+    const float CONFIDENCE_THRESHOLD = 0.5f; // Soglia del 50%, si può cambiare
     
     if (img.data && img.width > 0 && img.height > 0) {
         auto &detect_results = face_detector->run(img);
-        
+        result->num_faces = detect_results.size();
+
         // Controlla se sono state rilevate facce
         for (const auto &res : detect_results) {
             ESP_LOGI(TAG, "Faccia rilevata: score=%.3f, box=[%d,%d,%d,%d]", 
                      res.score, res.box[0], res.box[1], res.box[2], res.box[3]);
             
-            if (res.score > max_confidence) {
-                max_confidence = res.score;
+            //popola le bounding boxes
+            result->bounding_boxes[0] = res.box[0];
+            result->bounding_boxes[1] = res.box[1];
+            result->bounding_boxes[2] = res.box[2];
+            result->bounding_boxes[3] = res.box[3];
+
+            // Considera solo facce con confidenza sopra la soglia
+            if (res.score >= CONFIDENCE_THRESHOLD) {
+                if (res.score > max_confidence) {
+                    max_confidence = res.score;
+                }
                 face_detected = true;
+            } else {
+                ESP_LOGI(TAG, "Faccia scartata: confidenza %.3f < soglia %.3f", 
+                         res.score, CONFIDENCE_THRESHOLD);
             }
         }
         
         if (!face_detected) {
-            ESP_LOGI(TAG, "Nessuna faccia rilevata");
+            ESP_LOGI(TAG, "Nessuna faccia rilevata con confidenza >= %.1f%%", 
+                     CONFIDENCE_THRESHOLD * 100);
         }
     }
     
@@ -96,6 +111,8 @@ bool inference_process_image(const uint8_t* jpeg_data, size_t jpeg_size, inferen
     result->confidence = max_confidence;
     result->inference_time_ms = end_time - start_time;
     result->memory_used_kb = (free_heap_before - free_heap_after) / 1024;
+  
+
     
     // Aggiorna statistiche
     stats.total_inferences++;
@@ -111,7 +128,12 @@ bool inference_process_image(const uint8_t* jpeg_data, size_t jpeg_size, inferen
              result->face_detected ? "FACCIA" : "NO_FACCIA",
              result->confidence,
              result->inference_time_ms,
-             result->memory_used_kb);
+             result->memory_used_kb,
+             result->bounding_boxes[0],
+             result->bounding_boxes[1],
+             result->bounding_boxes[2],
+             result->bounding_boxes[3],
+             result->num_faces);
     
     return true;
 }
