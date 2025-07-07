@@ -45,9 +45,21 @@ ESP32CAM_ESPIDF/
 
 ### Prerequisiti
 - ESP-IDF v6.0 o superiore
+## Installazione ESP-IDF (fuori dalla repo)
+```bash
+#clona la repo di esp-idf
+git clone https://github.com/espressif/esp-idf.git
+cd esp-idf
+
+#installa esp-idf per la specifica architettura
+./install.sh esp32s3
+
+#attiva ambiente di sviluppo (ora puoi effettuare comandi idf.py)
+source export.sh 
+```
 - Python 3.8+
 
-### Comandi di build
+### Comandi di build (dentro la repo)
 ```bash
 # Configurazione iniziale
 idf.py set-target esp32s3
@@ -55,7 +67,7 @@ idf.py set-target esp32s3
 #Pulisci build
 idf.py fullclean
 
-#Installa dipendenze
+#Installa tutte le dipendenze necessarie
 idf.py reconfigure
 
 # Compilazione

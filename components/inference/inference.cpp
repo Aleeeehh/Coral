@@ -22,7 +22,7 @@ bool inference_init(void) {
     }
     
     // Crea il detector per face detection
-    face_detector = new HumanFaceDetect();
+    face_detector = new HumanFaceDetect(); //MSRMNP_S8_V1
     if (!face_detector) {
         ESP_LOGE(TAG, "Errore creazione HumanFaceDetect");
         return false;
