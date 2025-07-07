@@ -17,4 +17,4 @@ ISTRUZIONI E APPUNTI
 - Ricorda di killare il terminale del seriale prima di fare upload nuovo firmware
 - Se cambi porta di collegamento esp a mac, cambia "upload_port" in platformio.ini
 - che tu stia usando una esp32cam oppure un esp32, cambia "board" in platformio.ini
-- "172.20.10.2" ip per webserver
+- "172.20.10.3" ip per webserver

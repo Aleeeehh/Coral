@@ -1,4 +1,4 @@
-# ESP32-S3 AI CAMERA PER EDGEAI
+# Progetto di Tesi su ESP32-S3 Ai Camera Per EdgeAI
 
 
 ## Struttura del Progetto
@@ -20,7 +20,8 @@ ESP32CAM_ESPIDF/
 │   ├── webserver/                 # Componente webserver REST/HTTP
 │   │   ├── CMakeLists.txt
 │   │   ├── webserver.cpp          # Implementazione webserver
-│   │   └── webserver.h            # Header webserver
+│   │   ├── webserver.h            # Header webserver
+│   │   └── main_page.html         # Interfaccia web embedded
 │   └── inference/                 # Componente AI/inferenza
 │       ├── CMakeLists.txt
 │       ├── inference.cpp          # Logica di inferenza AI
@@ -37,7 +38,7 @@ ESP32CAM_ESPIDF/
 - `GET /` - Pagina principale con interfaccia web
 - `GET /capture` - Scatta una nuova foto
 - `GET /photo` - Visualizza l'ultima foto scattata
-- `POST /photo` - Inferenza semplice di visione
+- `POST /inference` - Esegue inferenza AI per rilevamento facce (MSRMNP_S8_V1)
 
 
 ##  Compilazione e Flash
