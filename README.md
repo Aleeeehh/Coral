@@ -44,8 +44,9 @@ ESP32CAM_ESPIDF/
 ##  Compilazione e Flash
 
 ### Prerequisiti
+
 - ESP-IDF v6.0 o superiore
-## Installazione ESP-IDF (fuori dalla repo)
+### Installazione ESP-IDF (fuori dalla repo)
 ```bash
 #clona la repo di esp-idf
 git clone https://github.com/espressif/esp-idf.git
@@ -56,6 +57,12 @@ cd esp-idf
 
 #attiva ambiente di sviluppo (ora puoi effettuare comandi idf.py)
 source export.sh 
+
+#per avere l'ambiente di sviluppo sempre attivo, aggiungi questa riga al tuo .bashrc o .zshrc
+#in questo modo, export.sh si attiva ad ogni nuovo terminale aperto
+#NOTA: Assicurati che il percorso $HOME/esp/esp-idf/ sia quello corretto della tua installazione
+source $HOME/esp/esp-idf/export.sh
+
 ```
 - Python 3.8+
 
