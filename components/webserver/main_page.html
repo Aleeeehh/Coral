@@ -50,10 +50,10 @@ display:
 button
 {
 padding:
-    15px 30px;
-    font-size : 18px;
+    10px 15px;
+    font-size : 14px;
 margin:
-    10px;
+    5px;
 border:
     none;
 cursor:
@@ -345,12 +345,12 @@ async function capturePhoto() {
 </head>
 <body>
     <div class="container">
-        <h1>📷 ESP32-CAM</h1>
+        <h1> Web UI di test per ESP32-s3</h1>
         <div id="status" class="status"></div>
         <div id="resolution" class="resolution">Risoluzione: </div>
-        <p>
+        <p style="display: flex; flex-wrap: wrap; justify-content: center; gap: 10px;">
             <button class="photo-btn" onclick="capturePhoto()">📸 Scatta Foto</button>
-            <button class="inference-btn" onclick="detectFace()">🤖 Detect Face</button>
+            <button class="inference-btn" onclick="detectFace()">🤖 Inference</button>
             <button onclick="changeResolution(1)">⬆️ Aumenta Risoluzione</button>
             <button onclick="changeResolution(0)">⬇️ Diminuisci Risoluzione</button>
         </p>
