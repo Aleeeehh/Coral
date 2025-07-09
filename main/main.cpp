@@ -28,6 +28,11 @@ const int WIFI_CONNECTED_BIT = BIT0; // bit flag per intendere "wifi connesso" (
 // Gestore di task, può essere usato per sospendere, modificare,riprendere, eliminare, o ottenere informazioni su di esso
 static TaskHandle_t webserver_task_handle = NULL;
 
+static int ciao_cmd(int argc, char **argv) {
+    printf("ciao anche a te\n");
+    return 0;
+}
+
 // WiFi event handler, gestisce tre eventi diversi
 static void event_handler(void *arg, esp_event_base_t event_base,
                           int32_t event_id, void *event_data)
@@ -84,28 +89,7 @@ static void webserver_task(void *pvParameters)
 }
 
 
-//inizio dell'applicazione
-extern "C" void app_main(void)
-{
-    ESP_LOGI(TAG, "Avvio ESP32CAM con ESP-IDF e FreeRTOS");
-
-    //visualizza la PSRAM attuale
-    ESP_LOGI("PSRAM", "Detected PSRAM: %zu bytes", heap_caps_get_free_size(MALLOC_CAP_SPIRAM));
-    
-    // Informazioni aggiuntive sulla memoria
-    ESP_LOGI("MEMORY", "Free heap: %lu bytes", esp_get_free_heap_size());
-    ESP_LOGI("MEMORY", "Largest free block: %lu bytes", heap_caps_get_largest_free_block(MALLOC_CAP_8BIT));
-    ESP_LOGI("MEMORY", "Free PSRAM: %zu bytes", heap_caps_get_free_size(MALLOC_CAP_SPIRAM));
-
-    // Inizializza NVS = "Non volatil storage" (Memoria flash dell'esp32)
-    esp_err_t ret = nvs_flash_init();
-    if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND) //se c'è un problema con lo storage
-    {
-        ESP_ERROR_CHECK(nvs_flash_erase()); //prova a svuotare la flash
-        ret = nvs_flash_init(); //prova a rifare l'inizializzazione dello storage (pulendolo)
-    }
-    ESP_ERROR_CHECK(ret); //se ret != ESP_OK, riavvia l'esp32
-
+static void start_webserver(){
     // Crea event group per WiFi
     wifi_event_group = xEventGroupCreate(); //crea un event group per la connessione WiFi
     
@@ -146,4 +130,50 @@ extern "C" void app_main(void)
 
     ESP_LOGI(TAG, "Tutti i task creati e avviati");
     ESP_LOGI(TAG, "Webserver disponibile su http://%s", IPSTR);
+}
+
+//inizio dell'applicazione
+extern "C" void app_main(void)
+{
+    ESP_LOGI(TAG, "Avvio ESP32-S3 Ai Camera con ESP-IDF e FreeRTOS");
+
+    //visualizza la PSRAM attuale
+    ESP_LOGI("PSRAM", "Detected PSRAM: %zu bytes", heap_caps_get_free_size(MALLOC_CAP_SPIRAM));
+    
+    // Informazioni aggiuntive sulla memoria
+    ESP_LOGI("MEMORY", "Free heap: %lu bytes", esp_get_free_heap_size());
+    ESP_LOGI("MEMORY", "Largest free block: %lu bytes", heap_caps_get_largest_free_block(MALLOC_CAP_8BIT));
+    ESP_LOGI("MEMORY", "Free PSRAM: %zu bytes", heap_caps_get_free_size(MALLOC_CAP_SPIRAM));
+
+    // Inizializza NVS = "Non volatil storage" (Memoria flash dell'esp32)
+    esp_err_t ret = nvs_flash_init();
+    if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND) //se c'è un problema con lo storage
+    {
+        ESP_ERROR_CHECK(nvs_flash_erase()); //prova a svuotare la flash
+        ret = nvs_flash_init(); //prova a rifare l'inizializzazione dello storage
+    }
+    ESP_ERROR_CHECK(ret); //se ret != ESP_OK, riavvia l'esp32
+
+
+
+    printf("INTERFACCIA A RIGA DI COMANDO\n");
+    printf("w: Avvia il webserver per web UI\n");
+    printf("e: Esci\n");
+    printf("Inserisci un comando:\n");
+
+    int command;
+    while (true) {
+        command = getchar();
+        if (command == 'w') {
+            printf("Avvio webserver per web UI all'IP 172.20.10.3...\n");
+            start_webserver();
+            break;
+        }
+        else if (command == 'e') {
+            printf("Uscita...\n");
+            break;
+        }
+        vTaskDelay(pdMS_TO_TICKS(100));
+    }
+    
 }

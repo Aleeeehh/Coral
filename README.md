@@ -85,6 +85,12 @@ idf.py -p /dev/tty.usbmodemXXXX flash
 
 # Monitor seriale
 idf.py -p /dev/tty.usbmodemXXXX monitor
+
+# Per poter inserire input da tastiera in monitor seriale per CLI
+idf.py menuconfig -> Component config → ESP System Settings → Channel for console output -> USB CDC
+
+#Per poter caricare modelli e immagini ad alta risoluzione in RAM
+idf.py menuconfig -> abilita PSIRAM/PSRAM (di default ci sarà DRAM)
 ```
 
 ### Configurazione WiFi
