@@ -90,7 +90,10 @@ idf.py -p /dev/tty.usbmodemXXXX monitor
 idf.py menuconfig -> Component config → ESP System Settings → Channel for console output -> USB CDC
 
 #Per poter caricare modelli e immagini ad alta risoluzione in RAM
-idf.py menuconfig -> abilita PSIRAM/PSRAM (di default ci sarà DRAM)
+idf.py menuconfig -> abilita PSIRAM/PSRAM (di default ci sarà solo DRAM)
+
+#Se la memoria flash non basta (di default ci solo si 4mb utilizzabili dei 16gb disponibili)
+idf.py menuconfig -> aumenta memoria flash utilizzabile da 4mb a 16mb
 ```
 
 ### Configurazione WiFi

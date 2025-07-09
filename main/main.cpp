@@ -28,10 +28,6 @@ const int WIFI_CONNECTED_BIT = BIT0; // bit flag per intendere "wifi connesso" (
 // Gestore di task, può essere usato per sospendere, modificare,riprendere, eliminare, o ottenere informazioni su di esso
 static TaskHandle_t webserver_task_handle = NULL;
 
-static int ciao_cmd(int argc, char **argv) {
-    printf("ciao anche a te\n");
-    return 0;
-}
 
 // WiFi event handler, gestisce tre eventi diversi
 static void event_handler(void *arg, esp_event_base_t event_base,
