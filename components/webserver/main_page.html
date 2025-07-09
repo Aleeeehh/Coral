@@ -101,6 +101,14 @@ padding:
     border-radius : 5px;
     font-weight : bold;
 }
+.resolution {
+    background: #f0f0f0;
+    padding: 8px;
+    border-radius: 4px;
+    margin: 10px 0;
+    font-weight: bold;
+    text-align: center;
+}
 .status.connected
 {
     background-color : #d4edda;
@@ -170,6 +178,56 @@ color:
             console.log('❌ Elemento img#photo non trovato');
         }
     }
+
+    // Funzione per ottenere la risoluzione corrente
+    async function getCurrentResolution() {
+    try {
+        const response = await fetch('/resolution/current');
+        const data = await response.json();
+        document.getElementById('resolution').textContent = 
+            `Risoluzione: ${data.width}x${data.height}`;
+    } catch (error) {
+        console.error('Errore nel caricamento risoluzione:', error);
+        document.getElementById('resolution').textContent = 'Risoluzione: Errore';
+    }
+}
+
+// Chiama la funzione quando la pagina si carica
+window.onload = function() {
+    getCurrentResolution();
+};
+    
+
+
+async function changeResolution(direction) {
+    try {
+        const response = await fetch(`/change_resolution?direction=${direction}`, { 
+            method: 'POST' 
+        });
+        const data = await response.json();
+        
+        // Aggiorna il display della risoluzione
+        document.getElementById('resolution').textContent = 
+            `Risoluzione: ${data.width}x${data.height}`;
+            
+        // Mostra feedback
+        const action = direction === 0 ? 'diminuita' : 'aumentata';
+        document.getElementById('status').textContent = 
+            `Risoluzione ${action} a ${data.width}x${data.height}`;
+            
+    } catch (error) {
+        document.getElementById('status').textContent = 'Errore nel cambio risoluzione';
+    }
+}
+
+// Funzioni wrapper per i bottoni
+function incrementResolution() {
+    changeResolution(1);
+}
+
+function decrementResolution() {
+    changeResolution(0);
+}
 
     function detectFace()
     {
@@ -259,15 +317,42 @@ function hideFaceBox() {
     overlay.style.display = 'none';
 }
 
+async function capturePhoto() {
+    try {
+        const response = await fetch('/capture');
+        const data = await response.json();
+        
+        if (data.success) {
+            // Aggiorna l'immagine dopo lo scatto
+            updatePhoto();
+            hideFaceBox();
+            
+            // Mostra feedback
+            document.getElementById('status').textContent = '✅ Foto scattata con successo!';
+            document.getElementById('status').className = 'status connected';
+        } else {
+            document.getElementById('status').textContent = '❌ Errore nello scatto foto';
+            document.getElementById('status').className = 'status error';
+        }
+    } catch (error) {
+        console.error('Errore scatto foto:', error);
+        document.getElementById('status').textContent = '❌ Errore di connessione';
+        document.getElementById('status').className = 'status error';
+    }
+}
+
     </script>
 </head>
 <body>
     <div class="container">
         <h1>📷 ESP32-CAM</h1>
-        <div id="status" class="status">Caricamento...</div>
+        <div id="status" class="status"></div>
+        <div id="resolution" class="resolution">Risoluzione: </div>
         <p>
-            <a href="/capture"><button class="photo-btn">📸 Scatta Foto</button></a>
+            <button class="photo-btn" onclick="capturePhoto()">📸 Scatta Foto</button>
             <button class="inference-btn" onclick="detectFace()">🤖 Detect Face</button>
+            <button onclick="changeResolution(1)">⬆️ Aumenta Risoluzione</button>
+            <button onclick="changeResolution(0)">⬇️ Diminuisci Risoluzione</button>
         </p>
         <div id="photo-container" class="photo-container" style="position: relative;">
             <h3>Ultima Foto Scattata:</h3>

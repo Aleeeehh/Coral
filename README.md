@@ -55,7 +55,7 @@ cd esp-idf
 #installa esp-idf per la specifica architettura
 ./install.sh esp32s3
 
-#attiva ambiente di sviluppo (ora puoi effettuare comandi idf.py)
+#attiva ambiente di sviluppo (ora puoi effettuare comandi idf.py su questo terminale)
 source export.sh 
 
 #per avere l'ambiente di sviluppo sempre attivo, aggiungi questa riga al tuo .bashrc o .zshrc
@@ -80,7 +80,7 @@ idf.py reconfigure
 # Compilazione
 idf.py build
 
-# Flash su dispositivo
+# Compilazione + Flash su dispositivo
 idf.py -p /dev/tty.usbmodemXXXX flash
 
 # Monitor seriale
@@ -93,3 +93,4 @@ Modifica `main.cpp` per impostare le credenziali WiFi per il web server:
 #define WIFI_SSID "Tua_Rete_WiFi"
 #define WIFI_PASS "Tua_Password"
 ```
+IP per connettersi al webserver da browser: 172.20.10.3

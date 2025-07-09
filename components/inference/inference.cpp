@@ -68,7 +68,7 @@ bool inference_process_image(const uint8_t* jpeg_data, size_t jpeg_size, inferen
     const float CONFIDENCE_THRESHOLD = 0.5f; // Soglia del 50%, si può cambiare
     
     if (img.data && img.width > 0 && img.height > 0) {
-        auto &detect_results = face_detector->run(img);
+        auto &detect_results = face_detector->run(img); //esegui l'inferenza
         result->num_faces = detect_results.size();
 
         // Controlla se sono state rilevate facce
