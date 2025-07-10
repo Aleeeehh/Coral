@@ -13,7 +13,8 @@ extern "C" {
 typedef struct {
     bool face_detected;
     float confidence;
-    uint32_t inference_time_ms;
+    uint32_t inference_time_ms; //tempo di esecuzione singola inferenza
+    uint32_t full_inference_time_ms; //tempo di esecuzione totale inferenza (preprocessing + inferenza + postprocessing)
     uint32_t memory_used_kb;
     uint32_t bounding_boxes[4];
     uint32_t num_faces;

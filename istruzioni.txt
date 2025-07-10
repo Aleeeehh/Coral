@@ -4,7 +4,9 @@ COMANDI CLI NUOVA ESP32-S3
 - "idf.py fullclean" //pulizia della build
 - "idf.py build" //compila e basta
 - "idf.py -p /dev/tty.usbmodem1101 flash" //compila e flasha
+oppure "idf.py -p /dev/cu.usbmodem101 flash"
 - "idf.py -p /dev/tty.usbmodem1101 monitor" //monitor seriale
+oppure "idf.py -p /dev/cu.usbmodem101 monitor"
 - "idf.py reconfigure" //installa tutte le librerie specificate in idf_component.yml
 
 

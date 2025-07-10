@@ -11,6 +11,10 @@ static const char* TAG = "INFERENCE";
 
 // Variabile globale per il sistema di inferenza (singleton per compatibilità)
 static inference_t g_inference;
+uint32_t start_time_full_inference;
+uint32_t end_time_full_inference;
+uint32_t start_time_run_inference;
+uint32_t end_time_run_inference;
 
 // Funzione helper per ottenere l'istanza globale (per compatibilità con codice esistente)
 static inference_t* get_inference_instance(void) {
@@ -64,7 +68,7 @@ bool inference_face_detector_init(inference_t *inf) {
     }
 
     printf("Snapshot della PSRAM dopo aver inizializzato il face detector\n");
-    monitor_log_ram_usage("INFERENCE_FACE_DETECTOR_START");
+    monitor_log_ram_usage("INFERENCE_FACE_DETECTOR_END");
     monitor_print_ram_stats();
     //monitor_memory_region_details();
     
@@ -78,16 +82,9 @@ bool inference_face_detection(inference_t *inf, const uint8_t* jpeg_data, size_t
         ESP_LOGE(TAG, "Parametri non validi o sistema non inizializzato");
         return false;
     }
-    
-    ESP_LOGI(TAG, "Elaborazione immagine JPEG (%zu bytes) con HumanFaceDetect", jpeg_size);
-    
-    // Avvia monitoraggio dell'inferenza
-    monitor_inference_start();
-    monitor_log_ram_usage("INFERENCE_START");
-    
-    uint32_t start_time = esp_timer_get_time() / 1000; // Converti in ms
-    uint32_t free_heap_before = esp_get_free_heap_size();
-    
+
+    start_time_full_inference = esp_timer_get_time() / 1000;  //inizia a contare tempo inferenza totale
+        
     // Prepara struttura JPEG per ESP-DL
     dl::image::jpeg_img_t jpeg_img = {
         .data = (void*)jpeg_data,
@@ -100,17 +97,19 @@ bool inference_face_detection(inference_t *inf, const uint8_t* jpeg_data, size_t
         ESP_LOGE(TAG, "Errore decodifica JPEG");
         return false;
     }
-    
-    ESP_LOGI(TAG, "Immagine decodificata: %dx%d", img.width, img.height);
-    
+        
     // Esegui face detection
     bool face_detected = false;
     float max_confidence = 0.0f;
     const float CONFIDENCE_THRESHOLD = 0.5f; // Soglia del 50%, si può cambiare
+
     
     if (img.data && img.width > 0 && img.height > 0) {
         HumanFaceDetect* detector = static_cast<HumanFaceDetect*>(inf->face_detector);
+        start_time_run_inference = esp_timer_get_time() / 1000;  //inizia a contare tempo inferenza 
         auto &detect_results = detector->run(img); //esegui l'inferenza
+        end_time_run_inference = esp_timer_get_time() / 1000; //smetti di contare tempo inferenza
+
         result->num_faces = detect_results.size();
 
         // Controlla se sono state rilevate facce
@@ -141,18 +140,18 @@ bool inference_face_detection(inference_t *inf, const uint8_t* jpeg_data, size_t
                      CONFIDENCE_THRESHOLD * 100);
         }
     }
-    
+
+    end_time_full_inference = esp_timer_get_time() / 1000; //smetti di contare tempo inferenza totale
+
+
     // Libera memoria immagine
     heap_caps_free(img.data);
-    
-    uint32_t end_time = esp_timer_get_time() / 1000;
-    uint32_t free_heap_after = esp_get_free_heap_size();
-    
+        
     // Popola il risultato
     result->face_detected = face_detected;
     result->confidence = max_confidence;
-    result->inference_time_ms = end_time - start_time;
-    result->memory_used_kb = (free_heap_before - free_heap_after) / 1024;
+    result->inference_time_ms = end_time_run_inference - start_time_run_inference;
+    result->full_inference_time_ms = end_time_full_inference - start_time_full_inference;
   
 
     
@@ -165,21 +164,34 @@ bool inference_face_detection(inference_t *inf, const uint8_t* jpeg_data, size_t
     if (result->memory_used_kb > inf->stats.max_memory_used_kb) {
         inf->stats.max_memory_used_kb = result->memory_used_kb;
     }
-    
-    // Termina monitoraggio dell'inferenza
-    monitor_inference_end();
-    monitor_log_ram_usage("INFERENCE_END");
+
     
     ESP_LOGI(TAG, "Inferenza completata: %s (conf: %.2f, tempo: %dms, mem: %dKB)", 
              result->face_detected ? "FACCIA" : "NO_FACCIA",
              result->confidence,
              result->inference_time_ms,
+             result->full_inference_time_ms,
              result->memory_used_kb,
              result->bounding_boxes[0],
              result->bounding_boxes[1],
              result->bounding_boxes[2],
              result->bounding_boxes[3],
              result->num_faces);
+    
+    // Stampa i risultati per CLI
+    printf("=== RISULTATI INFERENZA ===\n");
+    printf("Volto rilevato: %s\n", result->face_detected ? "SI" : "NO");
+    printf("Confidenza: %.3f\n", result->confidence);
+    printf("Tempo run singola inferenza: %lu ms\n", result->inference_time_ms);
+    printf("Tempo inferenza totale: %lu ms\n", result->full_inference_time_ms);
+    printf("Numero volti: %lu\n", result->num_faces);
+    if (result->face_detected) {
+        printf("Bounding box: [%lu, %lu, %lu, %lu]\n", 
+                 result->bounding_boxes[0], result->bounding_boxes[1],
+                 result->bounding_boxes[2], result->bounding_boxes[3]);
+    }
+    printf("===========================\n");
+    
     
     return true;
 }

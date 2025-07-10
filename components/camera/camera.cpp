@@ -367,18 +367,6 @@ esp_err_t camera_capture_and_inference(camera_t *camera, inference_result_t *res
         memcpy(result, &local_result, sizeof(inference_result_t));
     }
     
-    // Stampa i risultati per CLI
-    printf("=== RISULTATI INFERENZA ===\n");
-    printf("Volto rilevato: %s\n", local_result.face_detected ? "SI" : "NO");
-    printf("Confidenza: %.3f\n", local_result.confidence);
-    printf("Tempo inferenza: %lu ms\n", local_result.inference_time_ms);
-    printf("Numero volti: %lu\n", local_result.num_faces);
-    if (local_result.face_detected) {
-        printf("Bounding box: [%lu, %lu, %lu, %lu]\n", 
-                 local_result.bounding_boxes[0], local_result.bounding_boxes[1],
-                 local_result.bounding_boxes[2], local_result.bounding_boxes[3]);
-    }
-    printf("===========================\n");
-    
+
     return ESP_OK;
 } 
