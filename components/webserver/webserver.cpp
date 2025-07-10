@@ -40,7 +40,7 @@ void webserver_set_ip(const char* ip_address)
 
 
 
-//Funzioni di handler
+//Funzioni di handler per HTTP
 
 //handler per ottenere la risoluzione corrente
 static esp_err_t get_current_resolution(httpd_req_t *req)
