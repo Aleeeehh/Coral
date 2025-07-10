@@ -69,7 +69,7 @@ static void webserver_task(void *pvParameters)
 
     // Inizializza il sistema di inferenza dopo la connessione WiFi (potremmo creare una task dedicata)
     ESP_LOGI(TAG, "Inizializzazione sistema di inferenza...");
-    if (!inference_init()) {
+    if (!inference_init_legacy()) {
         ESP_LOGE(TAG, "Errore inizializzazione sistema di inferenza");
         vTaskDelete(NULL);
         return;

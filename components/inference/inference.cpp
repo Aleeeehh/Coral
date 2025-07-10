@@ -8,36 +8,62 @@
 
 static const char* TAG = "INFERENCE";
 
-// Statistiche globali
-static inference_stats_t stats = {0};
-static bool initialized = false;
-static HumanFaceDetect* face_detector = nullptr;
+// Variabile globale per il sistema di inferenza (singleton per compatibilità)
+static inference_t g_inference;
 
-bool inference_init(void) {
-    ESP_LOGI(TAG, "Inizializzazione sistema di inferenza HumanFaceDetect...");
+// Funzione helper per ottenere l'istanza globale (per compatibilità con codice esistente)
+static inference_t* get_inference_instance(void) {
+    return &g_inference;
+}
+
+bool inference_init(inference_t *inf) {
+    if (!inf) {
+        ESP_LOGE(TAG, "Parametro inference non valido");
+        return false;
+    }
     
-    if (initialized) {
+    ESP_LOGI(TAG, "Inizializzazione sistema di inferenza generale...");
+    
+    if (inf->initialized) {
         ESP_LOGW(TAG, "Sistema già inizializzato");
         return true;
     }
     
+    // Reset struttura
+    memset(inf, 0, sizeof(inference_t));
+    
+    inf->initialized = true;
+    ESP_LOGI(TAG, "Sistema di inferenza generale inizializzato con successo");
+    return true;
+}
+
+bool inference_face_detector_init(inference_t *inf) {
+    if (!inf || !inf->initialized) {
+        ESP_LOGE(TAG, "Sistema di inferenza non inizializzato");
+        return false;
+    }
+    
+    if (inf->face_detector_initialized) {
+        ESP_LOGW(TAG, "Face detector già inizializzato");
+        return true;
+    }
+    
+    ESP_LOGI(TAG, "Inizializzazione face detector HumanFaceDetect...");
+    
     // Crea il detector per face detection
-    face_detector = new HumanFaceDetect(); //MSRMNP_S8_V1
-    if (!face_detector) {
+    inf->face_detector = new HumanFaceDetect(); //MSRMNP_S8_V1
+    if (!inf->face_detector) {
         ESP_LOGE(TAG, "Errore creazione HumanFaceDetect");
         return false;
     }
     
-    // Reset statistiche
-    memset(&stats, 0, sizeof(stats));
-    
-    initialized = true;
-    ESP_LOGI(TAG, "Sistema di inferenza HumanFaceDetect inizializzato con successo");
+    inf->face_detector_initialized = true;
+    ESP_LOGI(TAG, "Face detector HumanFaceDetect inizializzato con successo");
     return true;
 }
 
-bool inference_process_image(const uint8_t* jpeg_data, size_t jpeg_size, inference_result_t* result) {
-    if (!initialized || !jpeg_data || !result || !face_detector) {
+bool inference_face_detection(inference_t *inf, const uint8_t* jpeg_data, size_t jpeg_size, inference_result_t* result) {
+    if (!inf || !inf->initialized || !inf->face_detector_initialized || !jpeg_data || !result || !inf->face_detector) {
         ESP_LOGE(TAG, "Parametri non validi o sistema non inizializzato");
         return false;
     }
@@ -68,7 +94,8 @@ bool inference_process_image(const uint8_t* jpeg_data, size_t jpeg_size, inferen
     const float CONFIDENCE_THRESHOLD = 0.5f; // Soglia del 50%, si può cambiare
     
     if (img.data && img.width > 0 && img.height > 0) {
-        auto &detect_results = face_detector->run(img); //esegui l'inferenza
+        HumanFaceDetect* detector = static_cast<HumanFaceDetect*>(inf->face_detector);
+        auto &detect_results = detector->run(img); //esegui l'inferenza
         result->num_faces = detect_results.size();
 
         // Controlla se sono state rilevate facce
@@ -115,13 +142,13 @@ bool inference_process_image(const uint8_t* jpeg_data, size_t jpeg_size, inferen
 
     
     // Aggiorna statistiche
-    stats.total_inferences++;
-    stats.avg_inference_time_ms = 
-        (stats.avg_inference_time_ms * (stats.total_inferences - 1) + result->inference_time_ms) / 
-        stats.total_inferences;
+    inf->stats.total_inferences++;
+    inf->stats.avg_inference_time_ms = 
+        (inf->stats.avg_inference_time_ms * (inf->stats.total_inferences - 1) + result->inference_time_ms) / 
+        inf->stats.total_inferences;
     
-    if (result->memory_used_kb > stats.max_memory_used_kb) {
-        stats.max_memory_used_kb = result->memory_used_kb;
+    if (result->memory_used_kb > inf->stats.max_memory_used_kb) {
+        inf->stats.max_memory_used_kb = result->memory_used_kb;
     }
     
     ESP_LOGI(TAG, "Inferenza completata: %s (conf: %.2f, tempo: %dms, mem: %dKB)", 
@@ -138,24 +165,61 @@ bool inference_process_image(const uint8_t* jpeg_data, size_t jpeg_size, inferen
     return true;
 }
 
-void inference_get_stats(inference_stats_t* result_stats) {
-    if (result_stats) {
-        memcpy(result_stats, &stats, sizeof(inference_stats_t));
+void inference_get_stats(inference_t *inf, inference_stats_t* result_stats) {
+    if (result_stats && inf) {
+        memcpy(result_stats, &inf->stats, sizeof(inference_stats_t));
     }
 }
 
-void inference_deinit(void) {
-    if (!initialized) {
+void inference_face_detector_deinit(inference_t *inf) {
+    if (!inf || !inf->face_detector_initialized) {
         return;
     }
     
-    ESP_LOGI(TAG, "Deinizializzazione sistema di inferenza HumanFaceDetect...");
+    ESP_LOGI(TAG, "Deinizializzazione face detector HumanFaceDetect...");
     
-    if (face_detector) {
-        delete face_detector;
-        face_detector = nullptr;
+    if (inf->face_detector) {
+        HumanFaceDetect* detector = static_cast<HumanFaceDetect*>(inf->face_detector);
+        delete detector;
+        inf->face_detector = nullptr;
     }
     
-    initialized = false;
-    ESP_LOGI(TAG, "Sistema di inferenza HumanFaceDetect deinizializzato");
+    inf->face_detector_initialized = false;
+    ESP_LOGI(TAG, "Face detector HumanFaceDetect deinizializzato");
+}
+
+void inference_deinit(inference_t *inf) {
+    if (!inf || !inf->initialized) {
+        return;
+    }
+    
+    ESP_LOGI(TAG, "Deinizializzazione sistema di inferenza...");
+    
+    // Deinizializza prima il face detector
+    inference_face_detector_deinit(inf);
+    
+    inf->initialized = false;
+    ESP_LOGI(TAG, "Sistema di inferenza deinizializzato");
+}
+
+// ===== FUNZIONI LEGACY PER COMPATIBILITÀ =====
+
+bool inference_init_legacy(void) {
+    inference_t *inf = get_inference_instance();
+    return inference_init(inf) && inference_face_detector_init(inf);
+}
+
+bool inference_process_image(const uint8_t* jpeg_data, size_t jpeg_size, inference_result_t* result) {
+    inference_t *inf = get_inference_instance();
+    return inference_face_detection(inf, jpeg_data, jpeg_size, result);
+}
+
+void inference_get_stats_legacy(inference_stats_t* result_stats) {
+    inference_t *inf = get_inference_instance();
+    inference_get_stats(inf, result_stats);
+}
+
+void inference_deinit_legacy(void) {
+    inference_t *inf = get_inference_instance();
+    inference_deinit(inf);
 } 

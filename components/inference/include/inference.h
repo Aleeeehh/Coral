@@ -26,14 +26,40 @@ typedef struct {
     uint32_t max_memory_used_kb;
 } inference_stats_t;
 
-/**
- * @brief Inizializza il sistema di inferenza
- * @return true se l'inizializzazione è riuscita, false altrimenti
- */
-bool inference_init(void);
+// Struttura per il sistema di inferenza (classe C-style)
+typedef struct {
+    bool initialized;
+    bool face_detector_initialized;
+    inference_stats_t stats;
+    void* face_detector; // Puntatore opaco al detector
+} inference_t;
 
 /**
- * @brief Elabora un'immagine JPEG e esegue l'inferenza
+ * @brief Inizializza il sistema di inferenza generale
+ * @param inf Puntatore alla struttura inference
+ * @return true se l'inizializzazione è riuscita, false altrimenti
+ */
+bool inference_init(inference_t *inf);
+
+/**
+ * @brief Inizializza il detector per face detection
+ * @param inf Puntatore alla struttura inference
+ * @return true se l'inizializzazione è riuscita, false altrimenti
+ */
+bool inference_face_detector_init(inference_t *inf);
+
+/**
+ * @brief Elabora un'immagine JPEG e esegue l'inferenza di face detection
+ * @param inf Puntatore alla struttura inference
+ * @param jpeg_data Puntatore ai dati JPEG
+ * @param jpeg_size Dimensione dei dati JPEG
+ * @param result Puntatore alla struttura risultato
+ * @return true se l'inferenza è riuscita, false altrimenti
+ */
+bool inference_face_detection(inference_t *inf, const uint8_t* jpeg_data, size_t jpeg_size, inference_result_t* result);
+
+/**
+ * @brief Elabora un'immagine JPEG e esegue l'inferenza (versione legacy)
  * @param jpeg_data Puntatore ai dati JPEG
  * @param jpeg_size Dimensione dei dati JPEG
  * @param result Puntatore alla struttura risultato
@@ -43,14 +69,39 @@ bool inference_process_image(const uint8_t* jpeg_data, size_t jpeg_size, inferen
 
 /**
  * @brief Ottiene le statistiche del sistema di inferenza
+ * @param inf Puntatore alla struttura inference
  * @param stats Puntatore alla struttura statistiche
  */
-void inference_get_stats(inference_stats_t* stats);
+void inference_get_stats(inference_t *inf, inference_stats_t* stats);
+
+/**
+ * @brief Ottiene le statistiche del sistema di inferenza (versione legacy)
+ * @param stats Puntatore alla struttura statistiche
+ */
+void inference_get_stats_legacy(inference_stats_t* stats);
+
+/**
+ * @brief Deinizializza il detector per face detection
+ * @param inf Puntatore alla struttura inference
+ */
+void inference_face_detector_deinit(inference_t *inf);
 
 /**
  * @brief Deinizializza il sistema di inferenza
+ * @param inf Puntatore alla struttura inference
  */
-void inference_deinit(void);
+void inference_deinit(inference_t *inf);
+
+/**
+ * @brief Deinizializza il sistema di inferenza (versione legacy)
+ */
+void inference_deinit_legacy(void);
+
+/**
+ * @brief Inizializza il sistema di inferenza (versione legacy)
+ * @return true se l'inizializzazione è riuscita, false altrimenti
+ */
+bool inference_init_legacy(void);
 
 #ifdef __cplusplus
 }
