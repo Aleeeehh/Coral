@@ -7,7 +7,6 @@
 ESP32CAM_ESPIDF/
 ├── CMakeLists.txt                 # Configurazione build principale
 ├── sdkconfig                      # Configurazione ESP-IDF generata
-├── sdkconfig.defaults             # Configurazioni di default
 ├── partitions.csv                 # Tabella partizioni custom (per modelli)
 ├── istruzioni.txt                 # Istruzioni d'uso o note
 ├── README.md                      # Questo file
@@ -17,6 +16,10 @@ ESP32CAM_ESPIDF/
 │   └── main.cpp                   # Entry point dell'applicazione
 │
 ├── components/                    # Componenti custom del progetto
+│   ├── camera/                    # Componente gestione fotocamera
+│   │   ├── CMakeLists.txt
+│   │   ├── camera.cpp             # Implementazione fotocamera
+│   │   └── camera.h               # Header fotocamera
 │   ├── webserver/                 # Componente webserver REST/HTTP
 │   │   ├── CMakeLists.txt
 │   │   ├── webserver.cpp          # Implementazione webserver
@@ -94,6 +97,9 @@ idf.py menuconfig -> abilita PSIRAM/PSRAM (di default ci sarà solo DRAM)
 
 #Se la memoria flash non basta (di default ci solo si 4mb utilizzabili dei 16gb disponibili)
 idf.py menuconfig -> aumenta memoria flash utilizzabile da 4mb a 16mb
+
+#Se hai problemi nel flashare il codice oppure nell'aprire il monito
+-> premi i bottoni BOOT o RESET, o entrambi contemporaneamente, sulla scheda
 ```
 
 ### Configurazione WiFi
