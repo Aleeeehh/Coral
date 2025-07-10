@@ -13,30 +13,17 @@ static const char *TAG = "WEBSERVER";
 // Dichiarazioni delle funzioni statiche
 static esp_err_t inference_post_handler(httpd_req_t *req);
 
-// Variabili globali
-static camera_t camera; // Istanza della fotocamera
-static httpd_handle_t server = NULL; // Server HTTP
+// Variabile globale per il webserver (singleton per compatibilità)
+static webserver_t g_webserver;
 
-// Variabile globale per l'IP
-static char current_ip[16] = "0.0.0.0"; // IP di default
+// Funzione helper per ottenere l'istanza globale (per compatibilità con handler esistenti)
+static webserver_t* get_webserver_instance(void) {
+    return &g_webserver;
+}
 
 // Dichiarazioni esterne per il file HTML embedded
 extern const uint8_t main_page_html_start[] asm("_binary_main_page_html_start");
 extern const uint8_t main_page_html_end[] asm("_binary_main_page_html_end");
-
-
-
-//Funzioni helper
-
-// Funzione per impostare l'IP del webserver
-void webserver_set_ip(const char* ip_address)
-{
-    if (ip_address != NULL && strlen(ip_address) < sizeof(current_ip)) {
-        strcpy(current_ip, ip_address);
-        ESP_LOGI(TAG, "IP del webserver impostato a: %s", current_ip);
-    }
-}
-
 
 
 
@@ -45,8 +32,9 @@ void webserver_set_ip(const char* ip_address)
 //handler per ottenere la risoluzione corrente
 static esp_err_t get_current_resolution(httpd_req_t *req)
 {
+    webserver_t *ws = get_webserver_instance();
     int width, height;
-    camera_get_current_resolution(&camera, &width, &height);
+    camera_get_current_resolution(&ws->camera, &width, &height);
 
     // Invia risposta JSON
     char response[128];
@@ -60,6 +48,8 @@ static esp_err_t get_current_resolution(httpd_req_t *req)
 //handler per incrementare la risoluzione della fotocamera
 static esp_err_t increment_resolution(httpd_req_t *req)
 {
+    webserver_t *ws = get_webserver_instance();
+    
     // Leggi il parametro dalla query string
     char query[50];
     httpd_req_get_url_query_str(req, query, sizeof(query));
@@ -72,7 +62,7 @@ static esp_err_t increment_resolution(httpd_req_t *req)
     }
 
     // Cambia la risoluzione usando la classe Camera
-    esp_err_t ret = camera_change_resolution(&camera, direction);
+    esp_err_t ret = camera_change_resolution(&ws->camera, direction);
     if (ret != ESP_OK) {
         ESP_LOGE(TAG, "Errore cambio risoluzione: %s", esp_err_to_name(ret));
         httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Errore cambio risoluzione");
@@ -81,7 +71,7 @@ static esp_err_t increment_resolution(httpd_req_t *req)
 
     // Ottieni dimensioni della risoluzione corrente
     int width, height;
-    camera_get_current_resolution(&camera, &width, &height);
+    camera_get_current_resolution(&ws->camera, &width, &height);
     ESP_LOGI(TAG, "Risoluzione impostata: %dx%d", width, height);
 
     // Invia risposta JSON
@@ -120,10 +110,11 @@ static esp_err_t root_get_handler(httpd_req_t *req)
 // Handler per lo scatto foto
 static esp_err_t capture_get_handler(httpd_req_t *req)
     {
+        webserver_t *ws = get_webserver_instance();
         ESP_LOGI(TAG, "Richiesta scatto foto");
 
         // Scatta la foto usando la classe Camera
-        esp_err_t ret = camera_capture_photo(&camera);
+        esp_err_t ret = camera_capture_photo(&ws->camera);
         if (ret != ESP_OK)
         {
             ESP_LOGE(TAG, "Errore scatto foto: %s", esp_err_to_name(ret));
@@ -143,12 +134,13 @@ static esp_err_t capture_get_handler(httpd_req_t *req)
 // Handler per la visualizzazione foto
 static esp_err_t photo_get_handler(httpd_req_t *req)
     {
+        webserver_t *ws = get_webserver_instance();
         ESP_LOGI(TAG, "Richiesta visualizzazione foto");
 
     uint8_t *buffer;
     size_t size;
 
-    esp_err_t ret = camera_get_last_photo(&camera, &buffer, &size);
+    esp_err_t ret = camera_get_last_photo(&ws->camera, &buffer, &size);
     if (ret != ESP_OK)
     {
         ESP_LOGE(TAG, "Nessuna foto disponibile: %s", esp_err_to_name(ret));
@@ -183,10 +175,11 @@ static esp_err_t photo_get_handler(httpd_req_t *req)
 // Handler per inferenza
 static esp_err_t inference_post_handler(httpd_req_t *req)
 {
+    webserver_t *ws = get_webserver_instance();
     ESP_LOGI(TAG, "Richiesta inferenza ricevuta");
     
     // Scatta una nuova foto
-    if (camera_capture_photo(&camera) != ESP_OK) {
+    if (camera_capture_photo(&ws->camera) != ESP_OK) {
         ESP_LOGE(TAG, "Errore durante lo scatto della foto");
         httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Errore camera");
         return ESP_FAIL;
@@ -195,7 +188,7 @@ static esp_err_t inference_post_handler(httpd_req_t *req)
     // Ottieni i dati della foto
     uint8_t *photo_buffer;
     size_t photo_size;
-    if (camera_get_last_photo(&camera, &photo_buffer, &photo_size) != ESP_OK) {
+    if (camera_get_last_photo(&ws->camera, &photo_buffer, &photo_size) != ESP_OK) {
         ESP_LOGE(TAG, "Nessuna foto disponibile per l'inferenza");
         httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Nessuna foto");
         return ESP_FAIL;
@@ -261,12 +254,52 @@ static const httpd_uri_t uri_handlers[] = {
 
 
 
-//Funzione per avviare il webserver
+//Funzioni per la classe C-style del webserver
 
 //chiamata da main.cpp, avvia una task che lancia il webserver, inizializza la fotocamera e un suo
 //relativo mutex, poi registra tutti le route con relativi handlers
-esp_err_t webserver_start(void)
+esp_err_t webserver_start_legacy(void)
 {
+    return webserver_start_instance(&g_webserver);
+}
+
+// Funzione wrapper per compatibilità (versione legacy senza parametri)
+esp_err_t webserver_init_legacy(void)
+{
+    return webserver_init(&g_webserver);
+}
+
+esp_err_t webserver_init(webserver_t *ws)
+{
+    if (!ws) {
+        return ESP_ERR_INVALID_ARG;
+    }
+
+    ESP_LOGI(TAG, "Inizializzazione webserver...");
+
+    // Inizializza struttura
+    memset(ws, 0, sizeof(webserver_t));
+    strcpy(ws->current_ip, "0.0.0.0");
+    ws->initialized = true;
+
+    // Inizializza fotocamera
+    esp_err_t ret = camera_init(&ws->camera);
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "Errore inizializzazione fotocamera");
+        return ret;
+    }
+
+    ESP_LOGI(TAG, "Webserver inizializzato con successo");
+    return ESP_OK;
+}
+
+esp_err_t webserver_start_instance(webserver_t *ws)
+{
+    if (!ws || !ws->initialized) {
+        ESP_LOGE(TAG, "Webserver non inizializzato");
+        return ESP_ERR_INVALID_STATE;
+    }
+
     ESP_LOGI(TAG, "Avvio webserver HTTP...");
 
     // Configurazione server HTTP
@@ -275,17 +308,8 @@ esp_err_t webserver_start(void)
     config.stack_size = 8192;
     config.core_id = tskNO_AFFINITY;
 
-    // Inizializza fotocamera usando la nuova classe Camera
-    esp_err_t ret = camera_init(&camera);
-    if (ret != ESP_OK)
-    {
-        ESP_LOGE(TAG, "Errore inizializzazione fotocamera");
-        return ret;
-    }
-
-    // Avvia server HTTP con la sua relativa task, questa task rimarrà poi in background
-    //per ricevere e gestire tutte le chiamate HTTP da browser
-    ret = httpd_start(&server, &config);
+    // Avvia server HTTP
+    esp_err_t ret = httpd_start(&ws->server, &config);
     if (ret != ESP_OK)
     {
         ESP_LOGE(TAG, "Errore avvio server HTTP: %s", esp_err_to_name(ret));
@@ -295,17 +319,100 @@ esp_err_t webserver_start(void)
     // Registra handler URI
     for (int i = 0; i < sizeof(uri_handlers) / sizeof(uri_handlers[0]); i++)
     {
-        ret = httpd_register_uri_handler(server, &uri_handlers[i]);
+        ret = httpd_register_uri_handler(ws->server, &uri_handlers[i]);
         if (ret != ESP_OK)
         {
             ESP_LOGE(TAG, "Errore registrazione handler %s: %s",
                      uri_handlers[i].uri, esp_err_to_name(ret));
-            httpd_stop(server);
+            httpd_stop(ws->server);
             return ret;
         }
     }
 
+    ws->running = true;
     ESP_LOGI(TAG, "Webserver avviato con successo");
 
     return ESP_OK;
 }
+
+esp_err_t webserver_stop(webserver_t *ws)
+{
+    if (!ws) {
+        return ESP_ERR_INVALID_ARG;
+    }
+
+    if (ws->running && ws->server) {
+        ESP_LOGI(TAG, "Arresto webserver...");
+        esp_err_t ret = httpd_stop(ws->server);
+        if (ret == ESP_OK) {
+            ws->running = false;
+            ws->server = NULL;
+            ESP_LOGI(TAG, "Webserver arrestato con successo");
+        }
+        return ret;
+    }
+
+    return ESP_OK;
+}
+
+esp_err_t webserver_deinit(webserver_t *ws)
+{
+    if (!ws) {
+        return ESP_ERR_INVALID_ARG;
+    }
+
+    ESP_LOGI(TAG, "Deinizializzazione webserver...");
+
+    // Ferma il server se in esecuzione
+    webserver_stop(ws);
+
+    // Deinizializza fotocamera
+    camera_deinit(&ws->camera);
+
+    ws->initialized = false;
+    ESP_LOGI(TAG, "Webserver deinizializzato");
+
+    return ESP_OK;
+}
+
+const char* webserver_get_ip(webserver_t *ws)
+{
+    if (!ws) {
+        return NULL;
+    }
+    return ws->current_ip;
+}
+
+bool webserver_is_running(webserver_t *ws)
+{
+    if (!ws) {
+        return false;
+    }
+    return ws->running;
+}
+
+
+
+//Funzioni helper
+
+// Funzione per impostare l'IP del webserver (versione legacy per compatibilità)
+void webserver_set_ip(const char* ip_address)
+{
+    webserver_set_ip_instance(&g_webserver, ip_address);
+}
+
+// Funzione wrapper per compatibilità (versione legacy senza parametri)
+void webserver_set_ip_legacy(const char* ip_address)
+{
+    webserver_set_ip_instance(&g_webserver, ip_address);
+}
+
+// Funzione per impostare l'IP del webserver (nuova versione con istanza)
+void webserver_set_ip_instance(webserver_t *ws, const char* ip_address)
+{
+    if (ws && ip_address != NULL && strlen(ip_address) < sizeof(ws->current_ip)) {
+        strcpy(ws->current_ip, ip_address);
+        ESP_LOGI(TAG, "IP del webserver impostato a: %s", ws->current_ip);
+    }
+}
+

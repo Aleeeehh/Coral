@@ -51,7 +51,7 @@ static void event_handler(void *arg, esp_event_base_t event_base,
         // Converte l'IP in stringa e lo passa al webserver
         char ip_str[16];
         snprintf(ip_str, sizeof(ip_str), IPSTR, IP2STR(&event->ip_info.ip));
-        webserver_set_ip(ip_str);
+        webserver_set_ip_legacy(ip_str); // Usa la versione legacy senza parametri
         
         xEventGroupSetBits(wifi_event_group, WIFI_CONNECTED_BIT);
     }
@@ -77,8 +77,16 @@ static void webserver_task(void *pvParameters)
     ESP_LOGI(TAG, "Sistema di inferenza inizializzato con successo");
     
 
+    // Inizializza il webserver
+    esp_err_t ret = webserver_init_legacy();
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "Errore inizializzazione webserver");
+        vTaskDelete(NULL);
+        return;
+    }
+
     //lancia il webserver
-    webserver_start();
+    webserver_start_legacy();
 
     // Poi termina il task, il task del webserver è ora indipendente
     vTaskDelete(NULL);
