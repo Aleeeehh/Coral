@@ -4,6 +4,7 @@
 #include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "inference.h"
 #include <string.h>
 
 static const char *TAG = "CAMERA";
@@ -305,7 +306,10 @@ esp_err_t camera_change_resolution(camera_t *camera, int direction)
     // Ottieni dimensioni della risoluzione corrente
     int width, height;
     camera_get_current_resolution(camera, &width, &height);
-    ESP_LOGI(TAG, "Risoluzione impostata: %dx%d", width, height);
+    printf("===========================\n");
+    printf("Risoluzione impostata: %dx%d\n", width, height);
+    printf("===========================\n");
+
 
     return ESP_OK;
 }
@@ -321,4 +325,61 @@ const camera_resolution_info_t* camera_get_resolution_info(int index)
         return &resolution_map[index];
     }
     return NULL;
+}
+
+esp_err_t camera_capture_and_inference(camera_t *camera, inference_result_t *result)
+{
+    if (!camera || !camera->initialized) {
+        ESP_LOGE(TAG, "Camera non inizializzata");
+        return ESP_ERR_INVALID_STATE;
+    }
+
+    ESP_LOGI(TAG, "Avvio scatto foto e inferenza...");
+    
+    // Scatta una nuova foto
+    esp_err_t ret = camera_capture_photo(camera);
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "Errore durante lo scatto della foto");
+        return ret;
+    }
+    
+    // Ottieni i dati della foto
+    uint8_t *photo_buffer;
+    size_t photo_size;
+    ret = camera_get_last_photo(camera, &photo_buffer, &photo_size);
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "Nessuna foto disponibile per l'inferenza");
+        return ret;
+    }
+    
+    // Esegui inferenza
+    ESP_LOGI(TAG, "Avvio inferenza su immagine di %zu bytes", photo_size);
+    inference_result_t local_result;
+    if (!inference_process_image(photo_buffer, photo_size, &local_result)) {
+        ESP_LOGE(TAG, "Errore durante l'inferenza - photo_size: %zu bytes, photo_buffer: %p", 
+                 photo_size, (void*)photo_buffer);
+        ESP_LOGE(TAG, "Da controllare: 1) Sistema inferenza inizializzato 2) Dati JPEG validi 3) Memoria disponibile");
+        return ESP_FAIL;
+    }
+    
+    // Se il parametro result non è NULL, copia i risultati
+    if (result != NULL) {
+        memcpy(result, &local_result, sizeof(inference_result_t));
+    }
+    
+    // Stampa i risultati per CLI
+    printf("=== RISULTATI INFERENZA ===\n");
+    printf("Volto rilevato: %s\n", local_result.face_detected ? "SI" : "NO");
+    printf("Confidenza: %.3f\n", local_result.confidence);
+    printf("Tempo inferenza: %lu ms\n", local_result.inference_time_ms);
+    printf("Memoria utilizzata: %lu KB\n", local_result.memory_used_kb);
+    printf("Numero volti: %lu\n", local_result.num_faces);
+    if (local_result.face_detected) {
+        printf("Bounding box: [%lu, %lu, %lu, %lu]\n", 
+                 local_result.bounding_boxes[0], local_result.bounding_boxes[1],
+                 local_result.bounding_boxes[2], local_result.bounding_boxes[3]);
+    }
+    printf("===========================\n");
+    
+    return ESP_OK;
 } 

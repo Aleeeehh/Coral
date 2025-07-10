@@ -5,6 +5,7 @@
 #include "esp_camera.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
+#include "inference.h"
 #include <stdint.h>
 #include <stddef.h>
 
@@ -99,6 +100,14 @@ int camera_get_resolution_count(void);
  * @return Puntatore alle informazioni della risoluzione, NULL se non valida
  */
 const camera_resolution_info_t* camera_get_resolution_info(int index);
+
+/**
+ * @brief Scatta una foto ed esegue l'inferenza di face detection
+ * @param camera Puntatore alla struttura camera
+ * @param result Puntatore alla struttura risultato (può essere NULL se non serve il risultato)
+ * @return ESP_OK se successo, errore altrimenti
+ */
+esp_err_t camera_capture_and_inference(camera_t *camera, inference_result_t *result);
 
 #ifdef __cplusplus
 }

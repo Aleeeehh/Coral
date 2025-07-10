@@ -12,11 +12,15 @@
 #include "nvs_flash.h"
 #include "webserver.h"
 #include "inference.h"
+#include "camera.h"
 
 #define WIFI_SSID "Iphone di Prato"
 #define WIFI_PASS "Ciaoo111"
 
 static const char *TAG = "MAIN";
+
+// Inizializza la fotocamera globalmente
+camera_t g_camera;
 
 // "ESP_ERROR_CHECK(x)" = esegui x normalmente, e se fallisce, riavvia l'esp32
 
@@ -136,6 +140,77 @@ static void start_webserver(){
     ESP_LOGI(TAG, "Webserver disponibile su http://%s", IPSTR);
 }
 
+
+static void cli_task(void *pvParameters){
+    printf("===========================\n");
+    printf("INTERFACCIA A RIGA DI COMANDO\n"); 
+    printf("===========================\n");
+    printf("h: mostra i comandi disponibili\n");
+    printf("i: Inizializza la fotocamera e il sistema di inferenza\n");
+    printf("d: Deinizializza la fotocamera e il sistema di inferenza\n");
+    printf("+: aumenta risoluzione fotocamera\n");
+    printf("-: riduci risoluzione fotocamera\n");
+    printf("w: Avvia il webserver per web UI\n");
+    printf("s: Scatta foto ed esegui inferenza face detection\n");
+    printf("e: Esci\n");
+    printf("RICORDA DI DEINIZIALIZZARE CAMERA E SISTEMA INFERENZA PRIMA DI LANCIARE WEBSERVER!\n");
+    printf("===========================\n");
+    printf("Inserisci un comando:\n");
+    int command;
+    while (true) {
+        command = getchar();
+        if (command == 'w') {
+            printf("Avvio webserver per web UI all'IP 172.20.10.3...\n");
+            start_webserver();
+        }
+        else if (command == 's') {
+            printf("Scatto foto ed eseguo inferenza face detection...\n");
+            camera_capture_and_inference(&g_camera, NULL);
+        }
+        else if (command == 'i'){
+            printf("Inizializza il sistema di inferenza...\n");
+            inference_init_legacy();
+            camera_init(&g_camera);
+        }
+        else if (command == 'd') {
+            printf("Deinizializza la fotocamera e il sistema di inferenza...\n");
+            camera_deinit(&g_camera);
+            inference_deinit_legacy();
+        }
+        else if (command == '+') {
+            printf("Aumenta risoluzione fotocamera...\n");
+            camera_change_resolution(&g_camera, 1);
+        }
+        else if (command == '-') {
+            printf("Riduci risoluzione fotocamera...\n");
+            camera_change_resolution(&g_camera, -1);
+        }
+        else if (command == 'h') {
+            printf("===========================\n");
+            printf("INTERFACCIA A RIGA DI COMANDO\n"); 
+            printf("===========================\n");
+            printf("h: mostra i comandi disponibili\n");
+            printf("i: Inizializza la fotocamera e il sistema di inferenza\n");
+            printf("d: Deinizializza la fotocamera e il sistema di inferenza\n");
+            printf("+: aumenta risoluzione fotocamera\n");
+            printf("-: riduci risoluzione fotocamera\n");
+            printf("w: Avvia il webserver per web UI\n");
+            printf("s: Scatta foto ed esegui inferenza face detection\n");
+            printf("e: Esci\n");
+            printf("RICORDA DI DEINIZIALIZZARE CAMERA E SISTEMA INFERENZA PRIMA DI LANCIARE WEBSERVER!\n");
+            printf("===========================\n");
+            printf("Inserisci un comando:\n");
+        }
+        else if (command == 'e') {
+            printf("Uscita...\n");
+            break;
+        }
+        vTaskDelay(pdMS_TO_TICKS(100));
+    }   
+    vTaskDelete(NULL); // Termina la task
+
+}
+
 //inizio dell'applicazione
 extern "C" void app_main(void)
 {
@@ -158,26 +233,9 @@ extern "C" void app_main(void)
     }
     ESP_ERROR_CHECK(ret); //se ret != ESP_OK, riavvia l'esp32
 
+    //Crea task per la CLI
+    xTaskCreate(cli_task, "cli_task", 4096, NULL, 1, NULL);
 
 
-    printf("INTERFACCIA A RIGA DI COMANDO\n");
-    printf("w: Avvia il webserver per web UI\n");
-    printf("e: Esci\n");
-    printf("Inserisci un comando:\n");
-
-    int command;
-    while (true) {
-        command = getchar();
-        if (command == 'w') {
-            printf("Avvio webserver per web UI all'IP 172.20.10.3...\n");
-            start_webserver();
-            break;
-        }
-        else if (command == 'e') {
-            printf("Uscita...\n");
-            break;
-        }
-        vTaskDelay(pdMS_TO_TICKS(100));
-    }
     
 }
