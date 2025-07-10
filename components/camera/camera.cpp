@@ -29,7 +29,7 @@ static const camera_resolution_info_t resolution_map[] = {
     {14, FRAMESIZE_UXGA, 1600, 1200},     // 1600x1200
     // 3MP Sensors
     {15, FRAMESIZE_FHD, 1920, 1080},      // 1920x1080
-    {16, FRAMESIZE_QXGA, 2048, 1536},     // 2048x1536
+    //{16, FRAMESIZE_QXGA, 2048, 1536},     // 2048x1536
     //FRAMESIZE_P_3MP,  // 864x1536, registrazione video 3MP per dispositivi mobili
 };
 
