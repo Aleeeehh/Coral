@@ -330,7 +330,9 @@ esp_err_t webserver_start_instance(webserver_t *ws)
     }
 
     ws->running = true;
-    ESP_LOGI(TAG, "Webserver avviato con successo");
+    printf("===========================\n");
+    printf("Webserver avviato con successo\n");
+    printf("===========================\n");
 
     return ESP_OK;
 }

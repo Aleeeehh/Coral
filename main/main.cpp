@@ -66,7 +66,6 @@ static void event_handler(void *arg, esp_event_base_t event_base,
 // Implementazione del task per il webserver
 static void webserver_task(void *pvParameters)
 {
-    ESP_LOGI(TAG, "Task webserver avviato");
 
     // Aspetta che il bit di connessione sia impostato nell'event group, lo fa aspettare(bloccante) fino a che non è impostato
     xEventGroupWaitBits(wifi_event_group, WIFI_CONNECTED_BIT, false, true, portMAX_DELAY);
@@ -168,9 +167,15 @@ static void cli_task(void *pvParameters){
             camera_capture_and_inference(&g_camera, NULL);
         }
         else if (command == 'i'){
-            printf("Inizializza il sistema di inferenza...\n");
+            printf("Inizializza il sistema di inferenza e la fotocamera...\n");
             inference_init_legacy();
             camera_init(&g_camera);
+            int width, height;
+            camera_get_current_resolution(&g_camera, &width, &height);
+            printf("===========================\n");
+            printf("Risoluzione attuale: %dx%d\n", width, height);
+            printf("===========================\n");
+
         }
         else if (command == 'd') {
             printf("Deinizializza la fotocamera e il sistema di inferenza...\n");
@@ -183,7 +188,7 @@ static void cli_task(void *pvParameters){
         }
         else if (command == '-') {
             printf("Riduci risoluzione fotocamera...\n");
-            camera_change_resolution(&g_camera, -1);
+            camera_change_resolution(&g_camera, 0);
         }
         else if (command == 'h') {
             printf("===========================\n");

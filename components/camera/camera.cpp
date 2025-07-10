@@ -11,25 +11,25 @@ static const char *TAG = "CAMERA";
 
 // Mappa delle risoluzioni disponibili
 static const camera_resolution_info_t resolution_map[] = {
-    {0, FRAMESIZE_96X96, 96, 96},    // 96x96
-    {1, FRAMESIZE_QQVGA, 160, 120},    // 160x120
-    {2, FRAMESIZE_128X128, 128, 128},    // 128x128
-    {3, FRAMESIZE_QCIF, 176, 144},     // 176x144
-    {4, FRAMESIZE_HQVGA, 240, 176},    // 240x176
-    {5, FRAMESIZE_240X240, 240, 240},  // 240x240
-    {6, FRAMESIZE_QVGA, 320, 240},     // 320x240
-    {7, FRAMESIZE_320X320, 320, 320},  // 320x320
-    {8, FRAMESIZE_CIF, 400, 296},      // 400x296
-    {9, FRAMESIZE_HVGA, 480, 320},     // 480x320
-    {10, FRAMESIZE_VGA, 640, 480},      // 640x480
-    {11, FRAMESIZE_SVGA, 800, 600},     // 800x600
-    {12, FRAMESIZE_XGA, 1024, 768},      // 1024x768
-    {13, FRAMESIZE_HD, 1280, 720},       // 1280x720
-    {14, FRAMESIZE_SXGA, 1280, 1024},     // 1280x1024
-    {15, FRAMESIZE_UXGA, 1600, 1200},     // 1600x1200
+    //{0, FRAMESIZE_96X96, 96, 96},    // 96x96 (causa problemi di stabilità)
+    {0, FRAMESIZE_QQVGA, 160, 120},    // 160x120
+    {1, FRAMESIZE_128X128, 128, 128},    // 128x128
+    {2, FRAMESIZE_QCIF, 176, 144},     // 176x144
+    {3, FRAMESIZE_HQVGA, 240, 176},    // 240x176
+    {4, FRAMESIZE_240X240, 240, 240},  // 240x240
+    {5, FRAMESIZE_QVGA, 320, 240},     // 320x240
+    {6, FRAMESIZE_320X320, 320, 320},  // 320x320
+    {7, FRAMESIZE_CIF, 400, 296},      // 400x296
+    {8, FRAMESIZE_HVGA, 480, 320},     // 480x320
+    {9, FRAMESIZE_VGA, 640, 480},      // 640x480
+    {10, FRAMESIZE_SVGA, 800, 600},     // 800x600
+    {11, FRAMESIZE_XGA, 1024, 768},      // 1024x768
+    {12, FRAMESIZE_HD, 1280, 720},       // 1280x720
+    {13, FRAMESIZE_SXGA, 1280, 1024},     // 1280x1024
+    {14, FRAMESIZE_UXGA, 1600, 1200},     // 1600x1200
     // 3MP Sensors
-    {16, FRAMESIZE_FHD, 1920, 1080},      // 1920x1080
-    {17, FRAMESIZE_QXGA, 2048, 1536},     // 2048x1536
+    {15, FRAMESIZE_FHD, 1920, 1080},      // 1920x1080
+    {16, FRAMESIZE_QXGA, 2048, 1536},     // 2048x1536
     //FRAMESIZE_P_3MP,  // 864x1536, registrazione video 3MP per dispositivi mobili
 };
 
@@ -59,7 +59,7 @@ static const camera_config_t default_camera_config = {
   .jpeg_quality  = 10, // più è alto, e più l'immagine è compressa
   .fb_count      = 1,
   .fb_location   = CAMERA_FB_IN_PSRAM, //Usa PSRAM per i buffer della fotocamera
-  .grab_mode     = CAMERA_GRAB_WHEN_EMPTY,
+  .grab_mode     = CAMERA_GRAB_LATEST, // Cambiato per gestire meglio risoluzioni basse
   .sccb_i2c_port = 0
 };
 
@@ -79,7 +79,7 @@ esp_err_t camera_init(camera_t *camera)
     memcpy(&camera->camera_config, &default_camera_config, sizeof(camera_config_t));
     
     // Imposta risoluzione di default
-    camera->current_resolution_index = 6; // QVGA
+    camera->current_resolution_index = 5; // QVGA
     camera->current_framesize = resolution_map[camera->current_resolution_index].framesize;
     camera->camera_config.frame_size = camera->current_framesize;
 
