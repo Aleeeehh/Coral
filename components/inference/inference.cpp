@@ -4,6 +4,7 @@
 #include "esp_heap_caps.h"
 #include "dl_image.hpp"
 #include "human_face_detect.hpp"
+#include "monitor.h"
 #include <string.h>
 
 static const char* TAG = "INFERENCE";
@@ -49,6 +50,11 @@ bool inference_face_detector_init(inference_t *inf) {
     }
     
     ESP_LOGI(TAG, "Inizializzazione face detector HumanFaceDetect...");
+
+    printf("Snapshot della PSRAM prima di inizializzare il face detector\n");
+    monitor_log_ram_usage("INFERENCE_FACE_DETECTOR_START");
+    monitor_print_ram_stats();
+    //monitor_memory_region_details();
     
     // Crea il detector per face detection
     inf->face_detector = new HumanFaceDetect(); //MSRMNP_S8_V1
@@ -56,6 +62,11 @@ bool inference_face_detector_init(inference_t *inf) {
         ESP_LOGE(TAG, "Errore creazione HumanFaceDetect");
         return false;
     }
+
+    printf("Snapshot della PSRAM dopo aver inizializzato il face detector\n");
+    monitor_log_ram_usage("INFERENCE_FACE_DETECTOR_START");
+    monitor_print_ram_stats();
+    //monitor_memory_region_details();
     
     inf->face_detector_initialized = true;
     ESP_LOGI(TAG, "Face detector HumanFaceDetect inizializzato con successo");
@@ -69,6 +80,10 @@ bool inference_face_detection(inference_t *inf, const uint8_t* jpeg_data, size_t
     }
     
     ESP_LOGI(TAG, "Elaborazione immagine JPEG (%zu bytes) con HumanFaceDetect", jpeg_size);
+    
+    // Avvia monitoraggio dell'inferenza
+    monitor_inference_start();
+    monitor_log_ram_usage("INFERENCE_START");
     
     uint32_t start_time = esp_timer_get_time() / 1000; // Converti in ms
     uint32_t free_heap_before = esp_get_free_heap_size();
@@ -150,6 +165,10 @@ bool inference_face_detection(inference_t *inf, const uint8_t* jpeg_data, size_t
     if (result->memory_used_kb > inf->stats.max_memory_used_kb) {
         inf->stats.max_memory_used_kb = result->memory_used_kb;
     }
+    
+    // Termina monitoraggio dell'inferenza
+    monitor_inference_end();
+    monitor_log_ram_usage("INFERENCE_END");
     
     ESP_LOGI(TAG, "Inferenza completata: %s (conf: %.2f, tempo: %dms, mem: %dKB)", 
              result->face_detected ? "FACCIA" : "NO_FACCIA",

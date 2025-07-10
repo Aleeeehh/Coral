@@ -372,7 +372,6 @@ esp_err_t camera_capture_and_inference(camera_t *camera, inference_result_t *res
     printf("Volto rilevato: %s\n", local_result.face_detected ? "SI" : "NO");
     printf("Confidenza: %.3f\n", local_result.confidence);
     printf("Tempo inferenza: %lu ms\n", local_result.inference_time_ms);
-    printf("Memoria utilizzata: %lu KB\n", local_result.memory_used_kb);
     printf("Numero volti: %lu\n", local_result.num_faces);
     if (local_result.face_detected) {
         printf("Bounding box: [%lu, %lu, %lu, %lu]\n", 

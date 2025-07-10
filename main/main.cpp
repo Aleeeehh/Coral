@@ -13,6 +13,7 @@
 #include "webserver.h"
 #include "inference.h"
 #include "camera.h"
+#include "monitor.h"
 
 #define WIFI_SSID "Iphone di Prato"
 #define WIFI_PASS "Ciaoo111"
@@ -151,8 +152,20 @@ static void cli_task(void *pvParameters){
     printf("-: riduci risoluzione fotocamera\n");
     printf("w: Avvia il webserver per web UI\n");
     printf("s: Scatta foto ed esegui inferenza face detection\n");
+    printf("f: Inizializza solo il modello di inferenza di face detection\n");
     printf("e: Esci\n");
-    printf("RICORDA DI DEINIZIALIZZARE CAMERA E SISTEMA INFERENZA PRIMA DI LANCIARE WEBSERVER!\n");
+    printf("===========================\n");
+    printf("COMANDI DI MONITORAGGIO\n"); 
+    printf("===========================\n");
+    printf("p: Avvia monitoraggio continuo\n");
+    printf("q: Ferma monitoraggio continuo\n");
+    printf("b: Benchmark performance\n");
+    printf("l: Mostra informazioni Flash\n");
+    printf("v: Mostra informazioni partizioni\n");
+    printf("z: Mostra riepilogo storage\n");
+    printf("m: Mostra statistiche di monitoraggio\n");
+    printf("t: Mostra statistiche task\n");
+    printf("r: Mostra statistiche RAM\n");
     printf("===========================\n");
     printf("Inserisci un comando:\n");
     int command;
@@ -177,6 +190,10 @@ static void cli_task(void *pvParameters){
             printf("===========================\n");
 
         }
+        else if (command == 'f') {  
+            printf("Inizializza solo il il modello di inferenza di face detection...\n");
+            inference_init_legacy();
+        }
         else if (command == 'd') {
             printf("Deinizializza la fotocamera e il sistema di inferenza...\n");
             camera_deinit(&g_camera);
@@ -190,6 +207,45 @@ static void cli_task(void *pvParameters){
             printf("Riduci risoluzione fotocamera...\n");
             camera_change_resolution(&g_camera, 0);
         }
+        else if (command == 'm') {
+            printf("Mostro statistiche di monitoraggio...\n");
+            monitor_print_system_stats();
+        }
+        else if (command == 't') {
+            printf("Mostro statistiche task...\n");
+            monitor_print_task_stats();
+            monitor_print_task_summary();
+        }
+        else if (command == 'r') {
+            printf("Mostro statistiche RAM...\n");
+            monitor_print_ram_stats();
+            monitor_memory_region_details();
+        }
+        else if (command == 'p') {
+            printf("Avvio monitoraggio continuo...\n");
+            monitor_start_continuous_monitoring();
+        }
+        else if (command == 'q') {
+            printf("Fermo monitoraggio continuo...\n");
+            monitor_stop_continuous_monitoring();
+        }
+        else if (command == 'b') {
+            printf("Eseguo benchmark performance...\n");
+            monitor_performance_benchmark();
+            monitor_print_performance_summary();
+        }
+        else if (command == 'l') {
+            printf("Mostro informazioni Flash...\n");
+            monitor_print_flash_info();
+        }
+        else if (command == 'v') {
+            printf("Mostro informazioni partizioni...\n");
+            monitor_print_partitions_info();
+        }
+        else if (command == 'z') {
+            printf("Mostro riepilogo storage...\n");
+            monitor_print_storage_summary();
+        }
         else if (command == 'h') {
             printf("===========================\n");
             printf("INTERFACCIA A RIGA DI COMANDO\n"); 
@@ -201,8 +257,20 @@ static void cli_task(void *pvParameters){
             printf("-: riduci risoluzione fotocamera\n");
             printf("w: Avvia il webserver per web UI\n");
             printf("s: Scatta foto ed esegui inferenza face detection\n");
+            printf("f: Inizializza solo il modello di inferenza di face detection\n");
             printf("e: Esci\n");
-            printf("RICORDA DI DEINIZIALIZZARE CAMERA E SISTEMA INFERENZA PRIMA DI LANCIARE WEBSERVER!\n");
+            printf("===========================\n");
+            printf("COMANDI DI MONITORAGGIO\n"); 
+            printf("===========================\n");
+            printf("p: Avvia monitoraggio continuo\n");
+            printf("q: Ferma monitoraggio continuo\n");
+            printf("b: Benchmark performance\n");
+            printf("l: Mostra informazioni Flash\n");
+            printf("v: Mostra informazioni partizioni\n");
+            printf("z: Mostra riepilogo storage\n");
+            printf("m: Mostra statistiche di monitoraggio\n");
+            printf("t: Mostra statistiche task\n");
+            printf("r: Mostra statistiche RAM\n");
             printf("===========================\n");
             printf("Inserisci un comando:\n");
         }
@@ -221,14 +289,6 @@ extern "C" void app_main(void)
 {
     ESP_LOGI(TAG, "Avvio ESP32-S3 Ai Camera con ESP-IDF e FreeRTOS");
 
-    //visualizza la PSRAM attuale
-    ESP_LOGI("PSRAM", "Detected PSRAM: %zu bytes", heap_caps_get_free_size(MALLOC_CAP_SPIRAM));
-    
-    // Informazioni aggiuntive sulla memoria
-    ESP_LOGI("MEMORY", "Free heap: %lu bytes", esp_get_free_heap_size());
-    ESP_LOGI("MEMORY", "Largest free block: %lu bytes", heap_caps_get_largest_free_block(MALLOC_CAP_8BIT));
-    ESP_LOGI("MEMORY", "Free PSRAM: %zu bytes", heap_caps_get_free_size(MALLOC_CAP_SPIRAM));
-
     // Inizializza NVS = "Non volatil storage" (Memoria flash dell'esp32)
     esp_err_t ret = nvs_flash_init();
     if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND) //se c'è un problema con lo storage
@@ -238,9 +298,11 @@ extern "C" void app_main(void)
     }
     ESP_ERROR_CHECK(ret); //se ret != ESP_OK, riavvia l'esp32
 
+    // Inizializza il sistema di monitoraggio
+    ESP_ERROR_CHECK(monitor_init());
+
     //Crea task per la CLI
     xTaskCreate(cli_task, "cli_task", 4096, NULL, 1, NULL);
 
-
-    
+    ESP_LOGI(TAG, "Sistema avviato. Usa 'h' per vedere i comandi disponibili.");
 }

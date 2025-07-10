@@ -1,7 +1,7 @@
 idf_component_register(
     SRCS "inference.cpp"
     INCLUDE_DIRS "include"
-    REQUIRES esp-dl esp32-camera esp_new_jpeg human_face_detect
+    REQUIRES esp-dl esp32-camera esp_new_jpeg human_face_detect monitor
 )
 
 # Aggiungi il path di include per human_face_detect

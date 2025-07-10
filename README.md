@@ -25,11 +25,16 @@ ESP32CAM_ESPIDF/
 │   │   ├── webserver.cpp          # Implementazione webserver
 │   │   ├── webserver.h            # Header webserver
 │   │   └── main_page.html         # Interfaccia web embedded
-│   └── inference/                 # Componente AI/inferenza
+│   ├── inference/                 # Componente AI/inferenza
+│   │   ├── CMakeLists.txt
+│   │   ├── inference.cpp          # Logica di inferenza AI
+│   │   └── include/
+│   │       └── inference.h        # API per l'inferenza
+│   └── monitor/                   # Sistema di monitoraggio risorse
 │       ├── CMakeLists.txt
-│       ├── inference.cpp          # Logica di inferenza AI
+│       ├── monitor.cpp            # Implementazione monitoraggio
 │       └── include/
-│           └── inference.h        # API per l'inferenza
+│           └── monitor.h          # API per il monitoraggio
 │
 ├── managed_components/            # Componenti/dipendenze gestiti da ESP-IDF (ESP-DL, ecc)
 ├── build/                         # Output di compilazione (generato)
@@ -42,6 +47,33 @@ ESP32CAM_ESPIDF/
 - `GET /capture` - Scatta una nuova foto
 - `GET /photo` - Visualizza l'ultima foto scattata
 - `POST /inference` - Esegue inferenza AI per rilevamento facce (MSRMNP_S8_V1)
+
+## Sistema di Monitoraggio
+
+Il progetto include un sistema di monitoraggio completo per tracciare le prestazioni dell'ESP32:
+
+### Comandi CLI Disponibili
+- `h` - Mostra tutti i comandi disponibili
+- `m` - Statistiche generali del sistema
+- `t` - Statistiche dettagliate delle task
+- `r` - Statistiche dettagliate della RAM
+- `p` - Avvia monitoraggio continuo
+- `q` - Ferma monitoraggio continuo
+- `b` - Benchmark performance
+- `i` - Inizializza fotocamera e inferenza
+- `d` - Deinizializza fotocamera e inferenza
+- `s` - Scatta foto ed esegue inferenza
+- `+` - Aumenta risoluzione fotocamera
+- `-` - Riduci risoluzione fotocamera
+- `w` - Avvia webserver
+
+### Funzionalità di Monitoraggio
+- **Monitoraggio RAM**: Utilizzo memoria heap, blocchi liberi, frammentazione
+- **Monitoraggio Task**: Distribuzione per core, utilizzo CPU, stack usage
+- **Monitoraggio Inferenza**: Tempo esecuzione, memoria utilizzata, picchi
+- **Monitoraggio Continuo**: Log automatici e trend di utilizzo
+
+Per dettagli completi, vedi [MONITORING_GUIDE.md](MONITORING_GUIDE.md).
 
 
 ##  Compilazione e Flash
