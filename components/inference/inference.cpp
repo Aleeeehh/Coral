@@ -328,4 +328,6 @@ void inference_get_stats_legacy(inference_stats_t* result_stats) {
 void inference_deinit_legacy(void) {
     inference_t *inf = get_inference_instance();
     inference_deinit(inf);
-} 
+}
+
+ 

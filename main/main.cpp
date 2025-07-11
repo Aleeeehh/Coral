@@ -23,6 +23,9 @@ static const char *TAG = "MAIN";
 // Inizializza la fotocamera globalmente
 camera_t g_camera;
 
+// Queue per comunicazione tra CLI e AI task
+static QueueHandle_t ai_task_queue = NULL;
+
 // "ESP_ERROR_CHECK(x)" = esegui x normalmente, e se fallisce, riavvia l'esp32
 
 // Un "event group" è un oggetto di FreeRTOS, che gestisce la comunicazione tra task
@@ -284,6 +287,35 @@ static void cli_task(void *pvParameters){
 
 }
 
+// Task AI dedicata all'inferenza
+static void ai_task(void *pvParameters)
+{
+    ESP_LOGI(TAG, "AI Task avviata - in attesa di frame per inferenza...");
+    
+    ai_task_message_t message;
+    
+    while (true) {
+        // Aspetta un messaggio dalla main task (CLI per ora), si blocca finchè non riceve un frame sui cui fare inference
+        if (xQueueReceive(ai_task_queue, &message, portMAX_DELAY) == pdTRUE) {
+            ESP_LOGI(TAG, "AI Task: Ricevuto frame di %zu bytes per inferenza", message.image_size);
+            
+            // Esegui inferenza
+            inference_result_t result;
+            if (inference_process_image(message.image_buffer, message.image_size, &result)) {
+                ESP_LOGI(TAG, "AI Task: Inferenza completata con successo");
+            } else {
+                ESP_LOGE(TAG, "AI Task: Errore durante l'inferenza");
+            }
+            
+            // Libera la memoria del frame (allocata dalla CLI task)
+            if (message.image_buffer) {
+                free(message.image_buffer);
+                message.image_buffer = NULL;
+            }
+        }
+    }
+}
+
 //inizio dell'applicazione
 extern "C" void app_main(void)
 {
@@ -301,8 +333,18 @@ extern "C" void app_main(void)
     // Inizializza il sistema di monitoraggio
     ESP_ERROR_CHECK(monitor_init());
 
+    // Inizializza la queue per la comunicazione con la AI task
+    ESP_ERROR_CHECK(camera_init_ai_queue());
+    
+    // Ottieni l'handle della queue e passalo alla AI task
+    ai_task_queue = camera_get_ai_queue();
+
     //Crea task per la CLI, main_task termina
     xTaskCreatePinnedToCore(cli_task, "cli_task", 4096, NULL, 1, NULL, 0);
 
+    //Crea task per AI con xTaskCreate e basta
+    xTaskCreate(ai_task, "ai_task", 8192, NULL, 1, NULL);
+
     ESP_LOGI(TAG, "Sistema avviato. Usa 'h' per vedere i comandi disponibili.");
 }
+

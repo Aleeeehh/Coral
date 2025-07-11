@@ -5,6 +5,7 @@
 #include "esp_camera.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
+#include "freertos/queue.h"
 #include "inference.h"
 #include <stdint.h>
 #include <stddef.h>
@@ -20,6 +21,13 @@ typedef struct {
     const int width;
     const int height;
 } camera_resolution_info_t;
+
+// Struttura per i messaggi tra CLI e AI task
+typedef struct {
+    uint8_t *image_buffer;
+    size_t image_size;
+    uint32_t timestamp;
+} ai_task_message_t;
 
 // Classe Camera
 typedef struct {
@@ -108,6 +116,18 @@ const camera_resolution_info_t* camera_get_resolution_info(int index);
  * @return ESP_OK se successo, errore altrimenti
  */
 esp_err_t camera_capture_and_inference(camera_t *camera, inference_result_t *result);
+
+/**
+ * @brief Inizializza la queue per la comunicazione con la AI task
+ * @return ESP_OK se successo, errore altrimenti
+ */
+esp_err_t camera_init_ai_queue(void);
+
+/**
+ * @brief Ottiene l'handle della queue per la AI task
+ * @return Handle della queue, NULL se non inizializzata
+ */
+QueueHandle_t camera_get_ai_queue(void);
 
 #ifdef __cplusplus
 }

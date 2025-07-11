@@ -4,6 +4,9 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <stddef.h>
+#include "esp_err.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/queue.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -108,6 +111,8 @@ void inference_deinit_legacy(void);
  * @return true se l'inizializzazione è riuscita, false altrimenti
  */
 bool inference_init_legacy(void);
+
+
 
 #ifdef __cplusplus
 }

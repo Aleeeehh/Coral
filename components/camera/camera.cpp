@@ -1,4 +1,5 @@
 #include "camera.h"
+#include "inference.h"
 #include "esp_log.h"
 #include "esp_camera.h"
 #include "esp_timer.h"
@@ -8,6 +9,9 @@
 #include <string.h>
 
 static const char *TAG = "CAMERA";
+
+// Queue per comunicazione con AI task
+static QueueHandle_t ai_task_queue = NULL;
 
 // Mappa delle risoluzioni disponibili
 static const camera_resolution_info_t resolution_map[] = {
@@ -334,7 +338,7 @@ esp_err_t camera_capture_and_inference(camera_t *camera, inference_result_t *res
         return ESP_ERR_INVALID_STATE;
     }
 
-    ESP_LOGI(TAG, "Avvio scatto foto e inferenza...");
+    ESP_LOGI(TAG, "Avvio scatto foto e invio alla AI task...");
     
     // Scatta una nuova foto
     esp_err_t ret = camera_capture_photo(camera);
@@ -351,33 +355,58 @@ esp_err_t camera_capture_and_inference(camera_t *camera, inference_result_t *res
         ESP_LOGE(TAG, "Nessuna foto disponibile per l'inferenza");
         return ret;
     }
-
-    // Stampa task corrente
-    TaskHandle_t current_task = xTaskGetCurrentTaskHandle();
-    const char* task_name = pcTaskGetName(current_task);
-    printf("Task corrente: %s\n", task_name);
-    printf("Task corrente: %s\n", task_name);
-    printf("Task corrente: %s\n", task_name);
-    printf("Task corrente: %s\n", task_name);
-    printf("Task corrente: %s\n", task_name);
-    printf("Task corrente: %s\n", task_name);
-    printf("Task corrente: %s\n", task_name);
     
-    // Esegui inferenza
-    ESP_LOGI(TAG, "Avvio inferenza su immagine di %zu bytes", photo_size);
-    inference_result_t local_result;
-    if (!inference_process_image(photo_buffer, photo_size, &local_result)) {
-        ESP_LOGE(TAG, "Errore durante l'inferenza - photo_size: %zu bytes, photo_buffer: %p", 
-                 photo_size, (void*)photo_buffer);
-        ESP_LOGE(TAG, "Da controllare: 1) Sistema inferenza inizializzato 2) Dati JPEG validi 3) Memoria disponibile");
-        return ESP_FAIL;
+    // Alloca memoria per copiare il frame (la AI task lo libererà)
+    uint8_t *frame_copy = (uint8_t *)malloc(photo_size);
+    if (!frame_copy) {
+        ESP_LOGE(TAG, "Errore allocazione memoria per copia frame");
+        return ESP_ERR_NO_MEM;
     }
     
-    // Se il parametro result non è NULL, copia i risultati
+    // Copia il frame
+    memcpy(frame_copy, photo_buffer, photo_size);
+    
+    // Prepara messaggio per AI task
+    ai_task_message_t message = {
+        .image_buffer = frame_copy,
+        .image_size = photo_size,
+        .timestamp = (uint32_t)(esp_timer_get_time() / 1000000)
+    };
+    
+    // Invia il messaggio alla AI task
+    if (xQueueSend(ai_task_queue, &message, pdMS_TO_TICKS(5000)) != pdTRUE) {
+        ESP_LOGE(TAG, "Timeout invio messaggio alla AI task");
+        free(frame_copy);
+        return ESP_ERR_TIMEOUT;
+    }
+    
+    ESP_LOGI(TAG, "Frame inviato alla AI task per inferenza");
+    
+    // Se il parametro result non è NULL, per ora restituiamo un risultato vuoto
+    // (in futuro potremmo implementare una queue di risposta)
     if (result != NULL) {
-        memcpy(result, &local_result, sizeof(inference_result_t));
+        memset(result, 0, sizeof(inference_result_t));
     }
-    
 
     return ESP_OK;
 } 
+
+esp_err_t camera_init_ai_queue(void)
+{
+    ESP_LOGI(TAG, "Inizializzazione queue per AI task...");
+    
+    // Crea la queue per i messaggi (max 5 messaggi in coda)
+    ai_task_queue = xQueueCreate(5, sizeof(ai_task_message_t));
+    if (ai_task_queue == NULL) {
+        ESP_LOGE(TAG, "Errore creazione queue per AI task");
+        return ESP_FAIL;
+    }
+    
+    ESP_LOGI(TAG, "Queue per AI task creata con successo");
+    return ESP_OK;
+}
+
+QueueHandle_t camera_get_ai_queue(void)
+{
+    return ai_task_queue;
+}
