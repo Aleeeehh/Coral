@@ -242,10 +242,9 @@ static esp_err_t inference_post_handler(httpd_req_t *req)
     strcat(faces_array, "]");
     
     snprintf(response, sizeof(response), 
-        "{\"face_detected\":%s,\"inference_time_ms\":%lu,\"memory_used_kb\":%lu,\"num_faces\":%lu,\"faces\":%s,\"success\":true}",
+        "{\"face_detected\":%s,\"inference_time_ms\":%lu,\"num_faces\":%lu,\"faces\":%s,\"success\":true}",
         result.face_detected ? "true" : "false",
         result.full_inference_time_ms,
-        result.memory_used_kb,
         result.num_faces,
         faces_array);
     

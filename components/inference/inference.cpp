@@ -139,7 +139,7 @@ bool inference_face_detection(inference_t *inf, const uint8_t* jpeg_data, size_t
         for (const auto &res : detect_results) {
             // Controlla che non superiamo il numero massimo di facce
             if (face_index >= MAX_FACES) {
-                ESP_LOGW(TAG, "Numero massimo di facce (%d) raggiunto, saltando detection %d", MAX_FACES, i);
+                ESP_LOGW(TAG, "Numero massimo di facce (%d) raggiunto, saltando detection %d", MAX_FACES, face_index);
                 break;
             }
             ESP_LOGI(TAG, "Faccia rilevata: score=%.3f, box=[%d,%d,%d,%d]", 
@@ -185,10 +185,6 @@ bool inference_face_detection(inference_t *inf, const uint8_t* jpeg_data, size_t
     inf->stats.avg_inference_time_ms = 
         (inf->stats.avg_inference_time_ms * (inf->stats.total_inferences - 1) + result->full_inference_time_ms) / 
         inf->stats.total_inferences;
-    
-    if (result->memory_used_kb > inf->stats.max_memory_used_kb) {
-        inf->stats.max_memory_used_kb = result->memory_used_kb;
-    }
 
     end_time_postprocessing = esp_timer_get_time() / 1000; //smetti di contare tempo postprocessing
     end_time_full_inference = esp_timer_get_time() / 1000; //smetti di contare tempo inferenza totale

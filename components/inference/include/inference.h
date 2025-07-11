@@ -29,7 +29,6 @@ typedef struct {
     uint32_t processing_time_ms; //tempo di esecuzione singola inferenza
     uint32_t postprocessing_time_ms; //tempo di esecuzione postprocessing
     uint32_t full_inference_time_ms; //tempo di esecuzione totale inferenza (preprocessing + inferenza + postprocessing)
-    uint32_t memory_used_kb;
     uint32_t num_faces; // Numero di facce rilevate
     face_t faces[MAX_FACES];
 } inference_result_t;
@@ -38,7 +37,6 @@ typedef struct {
 typedef struct {
     uint32_t total_inferences;
     uint32_t avg_inference_time_ms;
-    uint32_t max_memory_used_kb;
 } inference_stats_t;
 
 // Struttura per il sistema di inferenza (classe C-style)

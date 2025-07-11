@@ -255,7 +255,7 @@ function decrementResolution() {
                 }
                 
                 // Aggiorna il div status con il risultato
-                statusDiv.textContent = `${result} | Confidence media: ${avgConfidence}% | Tempo: ${data.inference_time_ms}ms | Memoria: ${data.memory_used_kb}KB`;
+                statusDiv.textContent = `${result} | Confidence media: ${avgConfidence}% | Tempo: ${data.inference_time_ms}ms`;
                 
                 // Applica la classe CSS appropriata
                 statusDiv.className = 'status ' + (data.face_detected ? 'face-detected' : 'no-face');
