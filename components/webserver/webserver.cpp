@@ -206,17 +206,32 @@ static esp_err_t inference_post_handler(httpd_req_t *req)
     }
     
     // Prepara risposta JSON
-    char response[512];
+    char response[1024]; // Aumentato per i keypoints
+    
+    // Costruisci array keypoints direttamente
+    char keypoints_str[256] = "[";
+    if (result.num_keypoints > 0) {
+        for (size_t k = 0; k < result.num_keypoints; k++) {
+            char temp[16];
+            snprintf(temp, sizeof(temp), "%lu", result.keypoints[k]);
+            strcat(keypoints_str, temp);
+            if (k < result.num_keypoints - 1) strcat(keypoints_str, ",");
+        }
+    }
+    strcat(keypoints_str, "]");
+    
     snprintf(response, sizeof(response), 
-        "{\"face_detected\":%s,\"confidence\":%.3f,\"inference_time_ms\":%lu,\"memory_used_kb\":%lu,\"bounding_box\":[%ld,%ld,%ld,%ld],\"num_faces\":%lu,\"success\":true}",
+        "{\"face_detected\":%s,\"confidence\":%.3f,\"inference_time_ms\":%lu,\"memory_used_kb\":%lu,\"bounding_box\":[%ld,%ld,%ld,%ld],\"keypoints\":%s,\"num_keypoints\":%lu,\"num_faces\":%lu,\"success\":true}",
         result.face_detected ? "true" : "false",
         result.confidence,
-        result.inference_time_ms,
+        result.full_inference_time_ms,
         result.memory_used_kb,
         result.bounding_boxes[0],
         result.bounding_boxes[1],
         result.bounding_boxes[2],
         result.bounding_boxes[3],
+        keypoints_str,
+        result.num_keypoints,
         result.num_faces);
     
     httpd_resp_set_type(req, "application/json");

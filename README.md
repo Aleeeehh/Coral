@@ -104,6 +104,9 @@ idf.py menuconfig -> aumenta memoria flash utilizzabile da 4mb a 16mb
 
 #Se hai problemi nel flashare il codice oppure nell'aprire il monito
 -> premi i bottoni BOOT o RESET, o entrambi contemporaneamente, sulla scheda
+
+#Per massime prestazioni della cpu
+-> setta i 160 Mhz di default della CPU a 240 Mhz
 ```
 
 ### Configurazione WiFi

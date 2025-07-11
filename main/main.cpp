@@ -301,8 +301,8 @@ extern "C" void app_main(void)
     // Inizializza il sistema di monitoraggio
     ESP_ERROR_CHECK(monitor_init());
 
-    //Crea task per la CLI
-    xTaskCreate(cli_task, "cli_task", 4096, NULL, 1, NULL);
+    //Crea task per la CLI, main_task termina
+    xTaskCreatePinnedToCore(cli_task, "cli_task", 4096, NULL, 1, NULL, 0);
 
     ESP_LOGI(TAG, "Sistema avviato. Usa 'h' per vedere i comandi disponibili.");
 }

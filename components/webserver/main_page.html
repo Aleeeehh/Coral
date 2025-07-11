@@ -257,8 +257,17 @@ function decrementResolution() {
                 // Disegna il rettangolo se una faccia è stata rilevata
                 if (data.face_detected && data.bounding_box) {
                     drawFaceBox(data.bounding_box);
+                    /*
+                    // Disegna i keypoints se presenti
+                    if (data.keypoints && data.keypoints.length > 0) {
+                        drawKeypoints(data.keypoints);
+                    } else {
+                        hideKeypoints();
+                    }
+                        */
                 } else {
                     hideFaceBox();
+                    hideKeypoints();
                 }
                 // Aggiorna la foto
                 updatePhoto();
@@ -315,6 +324,66 @@ function decrementResolution() {
 function hideFaceBox() {
     const overlay = document.getElementById('face-overlay');
     overlay.style.display = 'none';
+}
+
+function drawKeypoints(keypoints) {
+    const container = document.getElementById('photo-container');
+    const img = document.getElementById('photo');
+    
+    // Rimuovi keypoints esistenti
+    hideKeypoints();
+    
+    if (img.complete && img.naturalWidth > 0 && keypoints.length > 0) {
+        const imgRect = img.getBoundingClientRect();
+        const containerRect = container.getBoundingClientRect();
+        
+        // Calcola offset del contenitore
+        const offsetX = imgRect.left - containerRect.left;
+        const offsetY = imgRect.top - containerRect.top;
+        
+        // Calcola scala
+        const scaleX = imgRect.width / img.naturalWidth;
+        const scaleY = imgRect.height / img.naturalHeight;
+        
+        // Disegna ogni keypoint
+        for (let i = 0; i < keypoints.length; i += 2) {
+            if (i + 1 < keypoints.length) {
+                const x = keypoints[i];
+                const y = keypoints[i + 1];
+                
+                // Crea elemento keypoint
+                const keypoint = document.createElement('div');
+                keypoint.className = 'keypoint';
+                keypoint.style.position = 'absolute';
+                keypoint.style.width = '3px';
+                keypoint.style.height = '3px';
+                keypoint.style.backgroundColor = 'red';
+                keypoint.style.borderRadius = '50%';
+                keypoint.style.border = '1px solid white';
+                keypoint.style.zIndex = '1000';
+                
+                // Posiziona il keypoint
+                const scaledX = (x * scaleX) + offsetX - 1.5; // -1.5 per centrare
+                const scaledY = (y * scaleY) + offsetY - 1.5; // -1.5 per centrare
+                
+                keypoint.style.left = scaledX + 'px';
+                keypoint.style.top = scaledY + 'px';
+                
+                // Aggiungi tooltip con coordinate
+                keypoint.title = `Keypoint ${i/2}: (${x}, ${y})`;
+                
+                container.appendChild(keypoint);
+            }
+        }
+        
+        console.log(`🎯 Disegnati ${Math.floor(keypoints.length/2)} keypoints`);
+    }
+}
+
+function hideKeypoints() {
+    const container = document.getElementById('photo-container');
+    const keypoints = container.querySelectorAll('.keypoint');
+    keypoints.forEach(keypoint => keypoint.remove());
 }
 
 async function capturePhoto() {

@@ -13,10 +13,15 @@ extern "C" {
 typedef struct {
     bool face_detected;
     float confidence;
-    uint32_t inference_time_ms; //tempo di esecuzione singola inferenza
+    uint32_t preprocessing_time_ms; //tempo di esecuzione preprocessing
+    uint32_t processing_time_ms; //tempo di esecuzione singola inferenza
+    uint32_t postprocessing_time_ms; //tempo di esecuzione postprocessing
     uint32_t full_inference_time_ms; //tempo di esecuzione totale inferenza (preprocessing + inferenza + postprocessing)
     uint32_t memory_used_kb;
     uint32_t bounding_boxes[4];
+    uint32_t keypoints[10]; // Keypoints del viso [x1,y1,x2,y2,x3,y3,x4,y4,x5,y5]
+    uint32_t num_keypoints; // Numero di keypoints rilevati
+    uint32_t category; // Categoria del viso
     uint32_t num_faces;
 } inference_result_t;
 

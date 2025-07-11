@@ -351,6 +351,17 @@ esp_err_t camera_capture_and_inference(camera_t *camera, inference_result_t *res
         ESP_LOGE(TAG, "Nessuna foto disponibile per l'inferenza");
         return ret;
     }
+
+    // Stampa task corrente
+    TaskHandle_t current_task = xTaskGetCurrentTaskHandle();
+    const char* task_name = pcTaskGetName(current_task);
+    printf("Task corrente: %s\n", task_name);
+    printf("Task corrente: %s\n", task_name);
+    printf("Task corrente: %s\n", task_name);
+    printf("Task corrente: %s\n", task_name);
+    printf("Task corrente: %s\n", task_name);
+    printf("Task corrente: %s\n", task_name);
+    printf("Task corrente: %s\n", task_name);
     
     // Esegui inferenza
     ESP_LOGI(TAG, "Avvio inferenza su immagine di %zu bytes", photo_size);
