@@ -120,7 +120,6 @@ bool inference_face_detection(inference_t *inf, const uint8_t* jpeg_data, size_t
 
     bool face_detected = false;
     float max_confidence = 0.0f;
-    const float CONFIDENCE_THRESHOLD = 0.5f; // Soglia del 50%, si può cambiare
 
     
     if (img.data && img.width > 0 && img.height > 0) {
@@ -129,91 +128,57 @@ bool inference_face_detection(inference_t *inf, const uint8_t* jpeg_data, size_t
         start_time_processing = esp_timer_get_time() / 1000;  //inizia a contare tempo inferenza 
         auto &detect_results = detector->run(img); //esegui l'inferenza
         end_time_processing = esp_timer_get_time() / 1000; //smetti di contare tempo inferenza
-
-        // Stampa risultati grezzi del modello per analisi
-        printf("=== RISULTATI GREZZI DEL MODELLO ===\n");
-        printf("Numero detections grezze: %zu\n", detect_results.size());
-        size_t i = 0;
-        for (const auto &res : detect_results) {
-            printf("Detection %zu: category=%d, score=%.4f, box=[%d,%d,%d,%d]\n", 
-                   i, res.category, res.score, res.box[0], res.box[1], res.box[2], res.box[3]);
-            
-            // Stampa keypoints se presenti
-            if (!res.keypoint.empty()) {
-                printf("  Keypoints (%zu): ", res.keypoint.size());
-                for (size_t k = 0; k < res.keypoint.size(); k++) {
-                    printf("%d", res.keypoint[k]);
-                    if (k < res.keypoint.size() - 1) printf(",");
-                }
-                printf("\n");
-            }
-            
-            // Stampa area della bounding box
-            printf("  Box area: %d pixels\n", res.box_area());
-            
-            i++;
-        }
-        printf("=====================================\n");
-
+        result->num_faces = detect_results.size();
+        
         //Postprocessing
         start_time_postprocessing = esp_timer_get_time() / 1000;  //inizia a contare tempo postprocessing
-        result->num_faces = detect_results.size();
 
         // Controlla se sono state rilevate facce
         // Filtra e interpreta i risultati grezzi del modello
+        int face_index = 0;
         for (const auto &res : detect_results) {
+            // Controlla che non superiamo il numero massimo di facce
+            if (face_index >= MAX_FACES) {
+                ESP_LOGW(TAG, "Numero massimo di facce (%d) raggiunto, saltando detection %d", MAX_FACES, i);
+                break;
+            }
             ESP_LOGI(TAG, "Faccia rilevata: score=%.3f, box=[%d,%d,%d,%d]", 
                      res.score, res.box[0], res.box[1], res.box[2], res.box[3]);
             
             //popola le bounding boxes
-            result->bounding_boxes[0] = res.box[0];
-            result->bounding_boxes[1] = res.box[1];
-            result->bounding_boxes[2] = res.box[2];
-            result->bounding_boxes[3] = res.box[3];
+            for (int j = 0; j < 4; j++) {
+                result->faces[face_index].bounding_boxes[j] = res.box[j];
+            }
 
             //popola le keypoints con ciclo
-            result->num_keypoints = res.keypoint.size();
+            result->faces[face_index].num_keypoints = res.keypoint.size();
             for (size_t k = 0; k < res.keypoint.size(); k++) {
-                result->keypoints[k] = res.keypoint[k];
+                result->faces[face_index].keypoints[k] = res.keypoint[k];
             }
 
+            result->faces[face_index].confidence = res.score;
+
             //popola la categoria
-            result->category = res.category;
+            result->faces[face_index].category = res.category;
             
-            //TODO: ha senso?
-            // Considera solo facce con confidenza sopra la soglia
-            if (res.score >= CONFIDENCE_THRESHOLD) {
-                if (res.score > max_confidence) {
-                    max_confidence = res.score;
-                }
-                face_detected = true;
-            } else {
-                ESP_LOGI(TAG, "Faccia scartata: confidenza %.3f < soglia %.3f", 
-                         res.score, CONFIDENCE_THRESHOLD);
+            // Accetta tutte le facce rilevate, indipendentemente dalla confidence
+            if (res.score > max_confidence) {
+                max_confidence = res.score;
             }
+            face_detected = true;
+            ESP_LOGI(TAG, "Faccia accettata: confidenza %.3f", res.score);
+            
+            face_index++;
         }
         
         if (!face_detected) {
-            ESP_LOGI(TAG, "Nessuna faccia rilevata con confidenza >= %.1f%%", 
-                     CONFIDENCE_THRESHOLD * 100);
+            ESP_LOGI(TAG, "Nessuna faccia rilevata");
         }
     }
-    end_time_postprocessing = esp_timer_get_time() / 1000; //smetti di contare tempo postprocessing
-    end_time_full_inference = esp_timer_get_time() / 1000; //smetti di contare tempo inferenza totale
 
 
     // Libera memoria immagine
     heap_caps_free(img.data);
-        
-    // Popola il risultato
-    result->face_detected = face_detected;
-    result->confidence = max_confidence;
-    result->processing_time_ms = end_time_processing - start_time_processing;
-    result->preprocessing_time_ms = end_time_preprocessing - start_time_preprocessing;
-    result->postprocessing_time_ms = end_time_postprocessing - start_time_postprocessing;
-    result->full_inference_time_ms = end_time_full_inference - start_time_full_inference;
-  
-
     
     // Aggiorna statistiche
     inf->stats.total_inferences++;
@@ -225,50 +190,44 @@ bool inference_face_detection(inference_t *inf, const uint8_t* jpeg_data, size_t
         inf->stats.max_memory_used_kb = result->memory_used_kb;
     }
 
-    
-    ESP_LOGI(TAG, "Inferenza completata: %s (conf: %.2f, tempo: %dms, mem: %dKB)", 
-             result->face_detected ? "FACCIA" : "NO_FACCIA",
-             result->confidence,
-             result->processing_time_ms,
-             result->preprocessing_time_ms,
-             result->postprocessing_time_ms,
-             result->full_inference_time_ms,
-             result->memory_used_kb,
-             result->bounding_boxes[0],
-             result->bounding_boxes[1],
-             result->bounding_boxes[2],
-             result->bounding_boxes[3],
-             result->category,
-             result->num_faces);
-    
+    end_time_postprocessing = esp_timer_get_time() / 1000; //smetti di contare tempo postprocessing
+    end_time_full_inference = esp_timer_get_time() / 1000; //smetti di contare tempo inferenza totale
+
+    // Popola il risultato
+    result->face_detected = face_detected;
+    result->processing_time_ms = end_time_processing - start_time_processing;
+    result->preprocessing_time_ms = end_time_preprocessing - start_time_preprocessing;
+    result->postprocessing_time_ms = end_time_postprocessing - start_time_postprocessing;
+    result->full_inference_time_ms = end_time_full_inference - start_time_full_inference;
+  
+
+
     // Stampa i risultati per CLI
     printf("=== RISULTATI INFERENZA ===\n");
     printf("Volto rilevato: %s\n", result->face_detected ? "SI" : "NO");
-    printf("Confidenza: %.3f\n", result->confidence);
     printf("Tempo preprocessing: %lu ms\n", result->preprocessing_time_ms);
     printf("Tempo processing inferenza: %lu ms\n", result->processing_time_ms);
     printf("Tempo postprocessing: %lu ms\n", result->postprocessing_time_ms);
     printf("Tempo inferenza totale: %lu ms\n", result->full_inference_time_ms);
     printf("Numero volti: %lu\n", result->num_faces);
+    //printa bounding box, keypoints e confidenza per ogni faccia
     if (result->face_detected) {
-        printf("Bounding box: [%lu, %lu, %lu, %lu]\n", 
-                 result->bounding_boxes[0], result->bounding_boxes[1],
-                 result->bounding_boxes[2], result->bounding_boxes[3]);
-        
-        // Stampa keypoints se presenti
-        if (result->num_keypoints > 0) {
-            printf("Keypoints (%lu): ", result->num_keypoints);
-            for (size_t k = 0; k < result->num_keypoints; k++) {
-                printf("%lu", result->keypoints[k]);
-                if (k < result->num_keypoints - 1) printf(",");
+        for (int i = 0; i < result->num_faces; i++) {
+            printf("Bounding box: [%lu, %lu, %lu, %lu]\n", 
+                 result->faces[i].bounding_boxes[0], result->faces[i].bounding_boxes[1],
+                 result->faces[i].bounding_boxes[2], result->faces[i].bounding_boxes[3]);
+            printf("Keypoints (%lu): ", result->faces[i].num_keypoints);
+            for (size_t k = 0; k < result->faces[i].num_keypoints; k++) {
+                printf("%lu, ", result->faces[i].keypoints[k]);
             }
             printf("\n");
+            printf("Confidenza: %.3f\n", result->faces[i].confidence);
         }
     }
+
     printf("===========================\n");
-    
-    
     return true;
+
 }
 
 void inference_get_stats(inference_t *inf, inference_stats_t* result_stats) {

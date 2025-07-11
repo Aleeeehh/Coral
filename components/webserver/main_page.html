@@ -244,27 +244,37 @@ function decrementResolution() {
             console.log('✅ Risultato inferenza:', data);
             
             if (data.success) {
-                const result = data.face_detected ? '✅ FACCIA RILEVATA' : '❌ NESSUNA FACCIA';
-                const confidence = (data.confidence * 100).toFixed(1);
+                const result = data.face_detected ? `✅ ${data.num_faces} FACCIA/E RILEVATA/E` : '❌ NESSUNA FACCIA';
                 const statusDiv = document.getElementById('status');
                 
+                // Calcola confidence media se ci sono facce
+                let avgConfidence = 0;
+                if (data.face_detected && data.faces && data.faces.length > 0) {
+                    const totalConfidence = data.faces.reduce((sum, face) => sum + face.confidence, 0);
+                    avgConfidence = (totalConfidence / data.faces.length * 100).toFixed(1);
+                }
+                
                 // Aggiorna il div status con il risultato
-                statusDiv.textContent = `${result} | Confidence: ${confidence}% | Tempo: ${data.inference_time_ms}ms | Memoria: ${data.memory_used_kb}KB`;
+                statusDiv.textContent = `${result} | Confidence media: ${avgConfidence}% | Tempo: ${data.inference_time_ms}ms | Memoria: ${data.memory_used_kb}KB`;
                 
                 // Applica la classe CSS appropriata
                 statusDiv.className = 'status ' + (data.face_detected ? 'face-detected' : 'no-face');
                 
-                // Disegna il rettangolo se una faccia è stata rilevata
-                if (data.face_detected && data.bounding_box) {
-                    drawFaceBox(data.bounding_box);
+                // Disegna i rettangoli per tutte le facce rilevate
+                if (data.face_detected && data.faces && data.faces.length > 0) {
+                    // Per ora disegna solo la prima faccia (puoi estendere per multiple facce)
+                    const firstFace = data.faces[0];
+                    if (firstFace.bounding_box) {
+                        drawFaceBox(firstFace.bounding_box);
+                    }
                     /*
                     // Disegna i keypoints se presenti
-                    if (data.keypoints && data.keypoints.length > 0) {
-                        drawKeypoints(data.keypoints);
+                    if (firstFace.keypoints && firstFace.keypoints.length > 0) {
+                        drawKeypoints(firstFace.keypoints);
                     } else {
                         hideKeypoints();
                     }
-                        */
+                    */
                 } else {
                     hideFaceBox();
                     hideKeypoints();

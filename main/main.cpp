@@ -297,9 +297,7 @@ static void ai_task(void *pvParameters)
     while (true) {
         // Aspetta un messaggio dalla main task (CLI per ora), si blocca finchè non riceve un frame sui cui fare inference
         if (xQueueReceive(ai_task_queue, &message, portMAX_DELAY) == pdTRUE) {
-            ESP_LOGI(TAG, "AI Task: Ricevuto frame di %zu bytes per inferenza", message.image_size);
-            
-            // Esegui inferenza
+
             inference_result_t result;
             if (inference_process_image(message.image_buffer, message.image_size, &result)) {
                 ESP_LOGI(TAG, "AI Task: Inferenza completata con successo");
@@ -343,7 +341,7 @@ extern "C" void app_main(void)
     xTaskCreatePinnedToCore(cli_task, "cli_task", 4096, NULL, 1, NULL, 0);
 
     //Crea task per AI con xTaskCreate e basta
-    xTaskCreate(ai_task, "ai_task", 8192, NULL, 1, NULL);
+    xTaskCreate(ai_task, "ai_task", 32768, NULL, 1, NULL);
 
     ESP_LOGI(TAG, "Sistema avviato. Usa 'h' per vedere i comandi disponibili.");
 }

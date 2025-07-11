@@ -206,33 +206,48 @@ static esp_err_t inference_post_handler(httpd_req_t *req)
     }
     
     // Prepara risposta JSON
-    char response[1024]; // Aumentato per i keypoints
+    char response[2048]; // Aumentato per supportare multiple facce
     
-    // Costruisci array keypoints direttamente
-    char keypoints_str[256] = "[";
-    if (result.num_keypoints > 0) {
-        for (size_t k = 0; k < result.num_keypoints; k++) {
-            char temp[16];
-            snprintf(temp, sizeof(temp), "%lu", result.keypoints[k]);
-            strcat(keypoints_str, temp);
-            if (k < result.num_keypoints - 1) strcat(keypoints_str, ",");
+    // Costruisci array JSON per tutte le facce
+    char faces_array[1024] = "[";
+    for (uint32_t i = 0; i < result.num_faces && i < MAX_FACES; i++) {
+        // Costruisci array keypoints per questa faccia
+        char keypoints_str[256] = "[";
+        if (result.faces[i].num_keypoints > 0) {
+            for (size_t k = 0; k < result.faces[i].num_keypoints; k++) {
+                char temp[16];
+                snprintf(temp, sizeof(temp), "%lu", result.faces[i].keypoints[k]);
+                strcat(keypoints_str, temp);
+                if (k < result.faces[i].num_keypoints - 1) strcat(keypoints_str, ",");
+            }
         }
+        strcat(keypoints_str, "]");
+        
+        // Aggiungi questa faccia all'array
+        char face_json[512];
+        snprintf(face_json, sizeof(face_json),
+            "{\"confidence\":%.3f,\"bounding_box\":[%lu,%lu,%lu,%lu],\"keypoints\":%s,\"num_keypoints\":%lu,\"category\":%lu}",
+            result.faces[i].confidence,
+            result.faces[i].bounding_boxes[0],
+            result.faces[i].bounding_boxes[1],
+            result.faces[i].bounding_boxes[2],
+            result.faces[i].bounding_boxes[3],
+            keypoints_str,
+            result.faces[i].num_keypoints,
+            result.faces[i].category);
+        
+        strcat(faces_array, face_json);
+        if (i < result.num_faces - 1 && i < MAX_FACES - 1) strcat(faces_array, ",");
     }
-    strcat(keypoints_str, "]");
+    strcat(faces_array, "]");
     
     snprintf(response, sizeof(response), 
-        "{\"face_detected\":%s,\"confidence\":%.3f,\"inference_time_ms\":%lu,\"memory_used_kb\":%lu,\"bounding_box\":[%ld,%ld,%ld,%ld],\"keypoints\":%s,\"num_keypoints\":%lu,\"num_faces\":%lu,\"success\":true}",
+        "{\"face_detected\":%s,\"inference_time_ms\":%lu,\"memory_used_kb\":%lu,\"num_faces\":%lu,\"faces\":%s,\"success\":true}",
         result.face_detected ? "true" : "false",
-        result.confidence,
         result.full_inference_time_ms,
         result.memory_used_kb,
-        result.bounding_boxes[0],
-        result.bounding_boxes[1],
-        result.bounding_boxes[2],
-        result.bounding_boxes[3],
-        keypoints_str,
-        result.num_keypoints,
-        result.num_faces);
+        result.num_faces,
+        faces_array);
     
     httpd_resp_set_type(req, "application/json");
     httpd_resp_send(req, response, strlen(response));
