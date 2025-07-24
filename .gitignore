@@ -20,3 +20,12 @@ Thumbs.db
 # Temporary files
 *.tmp
 *.temp 
+
+# Notebooks - exclude heavy folders
+Notebooks/datasets/
+Notebooks/Foto/
+Notebooks/venv/
+Notebooks/*.ipynb_checkpoints/
+Notebooks/__pycache__/
+Notebooks/*.pyc
+.venv/

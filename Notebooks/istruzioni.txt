@@ -1,0 +1,3 @@
+- Attiva ambiente virtuale: source venv/bin/activate
+- Scarica tutte le dipendenze necesarie: pip install -r requirements.txt
+- seleziona in alto a destra il kernel "esp32cam python (notebooks)"

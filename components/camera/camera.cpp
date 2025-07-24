@@ -346,7 +346,10 @@ esp_err_t camera_capture_and_inference(camera_t *camera, inference_result_t *res
         ESP_LOGE(TAG, "Errore durante lo scatto della foto");
         return ret;
     }
-    
+
+    //cronometriamo il tempo di scatto foto
+    uint32_t start_time = esp_timer_get_time() / 1000000;
+
     // Ottieni i dati della foto
     uint8_t *photo_buffer;
     size_t photo_size;
@@ -365,7 +368,12 @@ esp_err_t camera_capture_and_inference(camera_t *camera, inference_result_t *res
     
     // Copia il frame
     memcpy(frame_copy, photo_buffer, photo_size);
-    
+
+    //calcoliamo il tempo di scatto foto
+    uint32_t end_time = esp_timer_get_time() / 1000000;
+    uint32_t photo_time = end_time - start_time;
+    ESP_LOGI(TAG, "Tempo di scatto foto: %d ms", photo_time);
+
     // Prepara messaggio per AI task
     ai_task_message_t message = {
         .image_buffer = frame_copy,
