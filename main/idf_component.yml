@@ -17,3 +17,4 @@ dependencies:
   espressif/esp32-camera: '*'
   espressif/esp-dl: '*'
   espressif/human_face_detect: '*'
+  espressif/esp-tflite-micro: '*'
