@@ -1,3 +1,8 @@
 - Attiva ambiente virtuale: source venv/bin/activate
 - Scarica tutte le dipendenze necesarie: pip install -r requirements.txt
 - seleziona in alto a destra il kernel "select another kernel-> jupyter kernel->esp32cam python (notebooks)"
+
+OGNI VOLTA CHE AGGIUNGI UNA DIPENDENZA ALL'AMBIENTE VIRTUALE
+- crea un nuovo kernel con l'attuale venv: python -m ipykernel install --user --name=esp32cam_venv --display-name="NOMEKERNEL"
+- Riavvia l'IDE
+- Seleziona il kernel appena creato
