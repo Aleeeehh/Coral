@@ -4,10 +4,20 @@
 #include "esp_heap_caps.h"
 #include "dl_image.hpp"
 #include "human_face_detect.hpp"
+#include "tensorflow/lite/micro/micro_interpreter.h"
+#include "tensorflow/lite/schema/schema_generated.h"
+#include "tensorflow/lite/micro/micro_mutable_op_resolver.h"
 #include "monitor.h"
 #include <string.h>
 
 static const char* TAG = "INFERENCE";
+
+//risorse e puntatori per il modello Yolo
+extern const uint8_t yolo11n_float32_tflite_start[] asm("_binary_yolo11n_float32_tflite_start");
+extern const uint8_t yolo11n_float32_tflite_end[] asm("_binary_yolo11n_float32_tflite_end");
+static const tflite::Model* model = nullptr;
+static tflite::MicroInterpreter* interpreter = nullptr;
+static uint8_t* tensor_arena = nullptr;
 
 // Variabile globale per il sistema di inferenza (singleton per compatibilità)
 static inference_t g_inference;
@@ -43,6 +53,86 @@ bool inference_init(inference_t *inf) {
     
     inf->initialized = true;
     ESP_LOGI(TAG, "Sistema di inferenza generale inizializzato con successo");
+    return true;
+}
+
+bool inference_yolo_init(void) {
+    ESP_LOGI(TAG, "Inizializzazione sistema di inferenza Yolo...");
+
+    printf("PSRAM libera prima di inizializzare il modello: %d bytes\n", heap_caps_get_free_size(MALLOC_CAP_SPIRAM));
+    
+    // Calcola dimensione modello
+    size_t model_size = yolo11n_float32_tflite_end - yolo11n_float32_tflite_start;
+    ESP_LOGI(TAG, "Dimensione modello: %zu bytes (%.1f MB)", model_size, (float)model_size / 1024 / 1024);
+    
+    // Carica modello
+    model = tflite::GetModel(yolo11n_float32_tflite_start);
+    if (!model) {
+        ESP_LOGE(TAG, "Impossibile caricare modello");
+        return false;
+    }
+    
+    // Verifica versione
+    if (model->version() != TFLITE_SCHEMA_VERSION) {
+        ESP_LOGE(TAG, "Modello incompatibile");
+        return false;
+    }
+    
+    // Configura resolver con tutte le operazioni necessarie per il modello YOLO
+    static tflite::MicroMutableOpResolver<19> resolver;
+    resolver.AddAdd();
+    resolver.AddConcatenation();
+    resolver.AddConv2D();
+    resolver.AddDepthwiseConv2D();
+    resolver.AddDequantize(); 
+    resolver.AddFullyConnected();
+    resolver.AddLogistic();
+    resolver.AddMaxPool2D();
+    resolver.AddMul();
+    resolver.AddPack();
+    resolver.AddPad();
+    resolver.AddReshape();
+    resolver.AddResizeNearestNeighbor();
+    resolver.AddSoftmax();
+    resolver.AddSplit();
+    resolver.AddStridedSlice();
+    resolver.AddSub();
+    resolver.AddTranspose();
+    
+
+    
+    // Alloca tensor arena in PSRAM
+    constexpr int arena_size = 6 * 1024 * 1024;  // 6MB ( della PSRAM)
+    tensor_arena = (uint8_t*)heap_caps_malloc(arena_size, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+    if (!tensor_arena) {
+        ESP_LOGE(TAG, "Impossibile allocare tensor arena");
+        return false;
+    }
+    
+    ESP_LOGI(TAG, "Tensor arena allocata: %d bytes (%.1f MB)", arena_size, (float)arena_size / 1024 / 1024);
+    
+    // Crea interprete
+    interpreter = new tflite::MicroInterpreter(model, resolver, tensor_arena, arena_size);
+    if (!interpreter) {
+        ESP_LOGE(TAG, "Impossibile creare interprete");
+        heap_caps_free(tensor_arena);
+        tensor_arena = nullptr;
+        return false;
+    }
+    
+    // Alloca tensori
+    TfLiteStatus allocate_status = interpreter->AllocateTensors();
+    ESP_LOGI(TAG, "Tensor Arena effettivamente usata: %d bytes", interpreter->arena_used_bytes());
+    if (allocate_status != kTfLiteOk) {
+        ESP_LOGE(TAG, "Allocazione tensor fallita");
+        delete interpreter;
+        interpreter = nullptr;
+        heap_caps_free(tensor_arena);
+        tensor_arena = nullptr;
+        return false;
+    }
+    
+    ESP_LOGI(TAG, "Inizializzazione YOLO completata!");
     return true;
 }
 

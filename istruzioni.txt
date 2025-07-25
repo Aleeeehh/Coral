@@ -8,6 +8,7 @@ oppure "idf.py -p /dev/cu.usbmodem101 flash"
 - "idf.py -p /dev/tty.usbmodem1101 monitor" //monitor seriale
 oppure "idf.py -p /dev/cu.usbmodem101 monitor"
 - "idf.py reconfigure" //installa tutte le librerie specificate in idf_component.yml
+- "idf.py size-components" //mostra consumo ram e flash di ogni componente
 
 
 GPIO ESP32CAM

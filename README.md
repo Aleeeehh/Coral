@@ -102,8 +102,8 @@ idf.py menuconfig -> abilita PSIRAM/PSRAM (di default ci sarà solo DRAM)
 #Se la memoria flash non basta (di default ci solo si 4mb utilizzabili dei 16gb disponibili)
 idf.py menuconfig -> aumenta memoria flash utilizzabile da 4mb a 16mb
 
-#Se hai problemi nel flashare il codice oppure nell'aprire il monito
--> premi i bottoni BOOT o RESET, o entrambi contemporaneamente, sulla scheda
+#Se hai problemi nel flashare il codice oppure nell'aprire il monitor
+-> tieni premuto bottone BOOT, premi e rilascia RST, poi rilascia BOOT, sulla scheda(così entri in in modalità download). Poi flasha il firmware. Poi premi RST per uscire da modalità download. Ora puoi aprire monitor. Lancia due volte il comando del monitor nel caso.
 
 #Per massime prestazioni della cpu
 -> setta i 160 Mhz di default della CPU a 240 Mhz

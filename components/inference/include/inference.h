@@ -116,6 +116,11 @@ void inference_deinit_legacy(void);
  */
 bool inference_init_legacy(void);
 
+/**
+ * @brief Inizializza il sistema di inferenza (versione Yolo)
+ * @return true se l'inizializzazione è riuscita, false altrimenti
+ */
+bool inference_yolo_init(void);
 
 
 #ifdef __cplusplus

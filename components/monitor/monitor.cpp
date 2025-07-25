@@ -9,6 +9,8 @@
 #include "esp_rom_sys.h"
 #include "esp_flash.h"
 #include "esp_partition.h"
+#include "esp_ota_ops.h"
+#include "nvs_flash.h"
 #include <stdio.h>
 #include <string.h>
 
@@ -572,48 +574,68 @@ void monitor_print_partitions_info(void) {
 }
 
 void monitor_print_storage_summary(void) {
-    printf("\n=== RIEPILOGO STORAGE ===\n");
+    printf("\n=== 💾 RIEPILOGO STORAGE DETTAGLIATO 💾 ===\n");
     
     // Informazioni Flash
     flash_info_t flash_info;
     monitor_get_flash_info(&flash_info);
     
-    printf("💾 Flash:\n");
-    printf("   Dimensione: %lu bytes (%.1f MB)\n", flash_info.flash_size, (float)flash_info.flash_size / 1024 / 1024);
+    printf("🔧 Flash Hardware:\n");
+    printf("   Dimensione totale: %lu bytes (%.1f MB)\n", flash_info.flash_size, (float)flash_info.flash_size / 1024 / 1024);
     printf("   Velocità: %lu MHz\n", flash_info.flash_speed / 1000000);
     printf("   Modalità: Non disponibile\n");
     
-    // Informazioni Partizioni
+    // Informazioni Partizioni con dettagli di utilizzo
     esp_partition_iterator_t it = esp_partition_find(ESP_PARTITION_TYPE_ANY, ESP_PARTITION_SUBTYPE_ANY, NULL);
     if (it) {
-        uint32_t total_partitions = 0;
-        uint32_t total_size = 0;
-        uint32_t app_size = 0;
-        uint32_t data_size = 0;
+        uint32_t total_used_size = 0;
         
+        // Calcola spazio effettivamente utilizzato
         const esp_partition_t* part;
         while ((part = esp_partition_get(it)) != NULL) {
-            total_partitions++;
-            total_size += part->size;
+            uint32_t part_used = 0;
             
             if (part->type == ESP_PARTITION_TYPE_APP) {
-                app_size += part->size;
+                // Per partizioni APP, ottieni la dimensione effettiva del firmware
+                const esp_partition_t* running_part = esp_ota_get_running_partition();
+                if (running_part && strcmp(part->label, running_part->label) == 0) {
+                    // Per ora, usa la dimensione della partizione (sarà più accurata)
+                    part_used = part->size;
+                }
             } else if (part->type == ESP_PARTITION_TYPE_DATA) {
-                data_size += part->size;
+                // Per partizioni DATA, ottieni l'uso effettivo
+                if (strstr(part->label, "nvs") != NULL) {
+                    nvs_stats_t nvs_stats;
+                    if (nvs_get_stats(NULL, &nvs_stats) == ESP_OK) {
+                        // Calcola spazio effettivamente utilizzato in NVS
+                        part_used = nvs_stats.used_entries * nvs_stats.total_entries;
+                    }
+                } else {
+                    // Per altre partizioni data, usa la dimensione completa
+                    part_used = part->size;
+                }
+            } else {
+                // Per altre partizioni (bootloader, partition table), usa la dimensione completa
+                part_used = part->size;
             }
             
+            total_used_size += part_used;
             it = esp_partition_next(it);
-            if (it == NULL) break; // Esci se non ci sono più partizioni
+            if (it == NULL) break;
         }
         
-        printf("📁 Partizioni:\n");
-        printf("   Numero totale: %lu\n", total_partitions);
-        printf("   Dimensione totale: %lu bytes (%.1f MB)\n", total_size, (float)total_size / 1024 / 1024);
-        printf("   App partitions: %lu bytes (%.1f MB)\n", app_size, (float)app_size / 1024 / 1024);
-        printf("   Data partitions: %lu bytes (%.1f MB)\n", data_size, (float)data_size / 1024 / 1024);
-        
         esp_partition_iterator_release(it);
+        
+        // Riepilogo generale
+        printf("\n📊 Utilizzo Flash:\n");
+        printf("   Spazio totale: %lu bytes (%.1f MB)\n", flash_info.flash_size, (float)flash_info.flash_size / 1024 / 1024);
+        printf("   Spazio utilizzato: %lu bytes (%.1f MB)\n", total_used_size, (float)total_used_size / 1024 / 1024);
+        printf("   Spazio libero: %lu bytes (%.1f MB)\n", 
+               flash_info.flash_size - total_used_size, (float)(flash_info.flash_size - total_used_size) / 1024 / 1024);
+        printf("   Percentuale utilizzata: %.1f%%\n", (float)total_used_size / flash_info.flash_size * 100);
+        
+
     }
     
-    printf("==========================\n\n");
+    printf("\n=====================================\n\n");
 } 

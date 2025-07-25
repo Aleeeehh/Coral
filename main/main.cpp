@@ -194,8 +194,11 @@ static void cli_task(void *pvParameters){
 
         }
         else if (command == 'f') {  
-            printf("Inizializza solo il il modello di inferenza di face detection...\n");
-            inference_init_legacy();
+            //printf("Inizializza solo il il modello di inferenza di face detection...\n");
+            //inference_init_legacy();
+
+            //inizializza modello Yolov11n
+            inference_yolo_init();
         }
         else if (command == 'd') {
             printf("Deinizializza la fotocamera e il sistema di inferenza...\n");
