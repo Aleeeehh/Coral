@@ -2,7 +2,7 @@ idf_component_register(
     SRCS "inference.cpp"
     INCLUDE_DIRS "include"
     REQUIRES esp-dl esp32-camera esp_new_jpeg human_face_detect monitor esp-tflite-micro
-               EMBED_FILES "models/yolo11n_float32.tflite"
+               EMBED_FILES "models/yolo11n_full_integer_quant.tflite"
 )
 
 # Aggiungi il path di include per human_face_detect

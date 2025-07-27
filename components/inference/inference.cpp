@@ -13,8 +13,8 @@
 static const char* TAG = "INFERENCE";
 
 //risorse e puntatori per il modello Yolo
-extern const uint8_t yolo11n_float32_tflite_start[] asm("_binary_yolo11n_float32_tflite_start");
-extern const uint8_t yolo11n_float32_tflite_end[] asm("_binary_yolo11n_float32_tflite_end");
+extern const uint8_t yolo11n_full_integer_quant_tflite_start[] asm("_binary_yolo11n_full_integer_quant_tflite_start");
+extern const uint8_t yolo11n_full_integer_quant_tflite_end[] asm("_binary_yolo11n_full_integer_quant_tflite_end");
 static const tflite::Model* model = nullptr;
 static tflite::MicroInterpreter* interpreter = nullptr;
 static uint8_t* tensor_arena = nullptr;
@@ -62,11 +62,11 @@ bool inference_yolo_init(void) {
     printf("PSRAM libera prima di inizializzare il modello: %d bytes\n", heap_caps_get_free_size(MALLOC_CAP_SPIRAM));
     
     // Calcola dimensione modello
-    size_t model_size = yolo11n_float32_tflite_end - yolo11n_float32_tflite_start;
+    size_t model_size = yolo11n_full_integer_quant_tflite_end - yolo11n_full_integer_quant_tflite_start;
     ESP_LOGI(TAG, "Dimensione modello: %zu bytes (%.1f MB)", model_size, (float)model_size / 1024 / 1024);
     
     // Carica modello
-    model = tflite::GetModel(yolo11n_float32_tflite_start);
+    model = tflite::GetModel(yolo11n_full_integer_quant_tflite_start);
     if (!model) {
         ESP_LOGE(TAG, "Impossibile caricare modello");
         return false;
@@ -79,30 +79,54 @@ bool inference_yolo_init(void) {
     }
     
     // Configura resolver con tutte le operazioni necessarie per il modello YOLO
-    static tflite::MicroMutableOpResolver<19> resolver;
+    static tflite::MicroMutableOpResolver<20> resolver;
+    ESP_LOGI(TAG, "Configurando resolver con 20 operazioni...");
+    
     resolver.AddAdd();
+    ESP_LOGI(TAG, "Aggiunta operazione: ADD");
     resolver.AddConcatenation();
+    ESP_LOGI(TAG, "Aggiunta operazione: CONCATENATION");
     resolver.AddConv2D();
+    ESP_LOGI(TAG, "Aggiunta operazione: CONV_2D");
     resolver.AddDepthwiseConv2D();
-    resolver.AddDequantize(); 
+    ESP_LOGI(TAG, "Aggiunta operazione: DEPTHWISE_CONV_2D");
+    resolver.AddDequantize();
+    ESP_LOGI(TAG, "Aggiunta operazione: DEQUANTIZE");
     resolver.AddFullyConnected();
+    ESP_LOGI(TAG, "Aggiunta operazione: FULLY_CONNECTED");
     resolver.AddLogistic();
+    ESP_LOGI(TAG, "Aggiunta operazione: LOGISTIC");
     resolver.AddMaxPool2D();
+    ESP_LOGI(TAG, "Aggiunta operazione: MAX_POOL_2D");
     resolver.AddMul();
+    ESP_LOGI(TAG, "Aggiunta operazione: MUL");
     resolver.AddPack();
+    ESP_LOGI(TAG, "Aggiunta operazione: PACK");
     resolver.AddPad();
+    ESP_LOGI(TAG, "Aggiunta operazione: PAD");
+    resolver.AddQuantize();
+    ESP_LOGI(TAG, "Aggiunta operazione: QUANTIZE");
     resolver.AddReshape();
+    ESP_LOGI(TAG, "Aggiunta operazione: RESHAPE");
     resolver.AddResizeNearestNeighbor();
+    ESP_LOGI(TAG, "Aggiunta operazione: RESIZE_NEAREST_NEIGHBOR");
     resolver.AddSoftmax();
+    ESP_LOGI(TAG, "Aggiunta operazione: SOFTMAX");
     resolver.AddSplit();
+    ESP_LOGI(TAG, "Aggiunta operazione: SPLIT");
     resolver.AddStridedSlice();
+    ESP_LOGI(TAG, "Aggiunta operazione: STRIDED_SLICE");
     resolver.AddSub();
+    ESP_LOGI(TAG, "Aggiunta operazione: SUB");
     resolver.AddTranspose();
+    ESP_LOGI(TAG, "Aggiunta operazione: TRANSPOSE");
+    
+    ESP_LOGI(TAG, "Resolver configurato con successo!");
     
 
     
     // Alloca tensor arena in PSRAM
-    constexpr int arena_size = 6 * 1024 * 1024;  // 6MB ( della PSRAM)
+    constexpr int arena_size = 7 * 1024 * 1024;  // 7MB ( della PSRAM)
     tensor_arena = (uint8_t*)heap_caps_malloc(arena_size, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
     if (!tensor_arena) {
         ESP_LOGE(TAG, "Impossibile allocare tensor arena");
@@ -111,6 +135,7 @@ bool inference_yolo_init(void) {
     
     ESP_LOGI(TAG, "Tensor arena allocata: %d bytes (%.1f MB)", arena_size, (float)arena_size / 1024 / 1024);
     
+    ESP_LOGI(TAG, "Creazione interprete...");
     // Crea interprete
     interpreter = new tflite::MicroInterpreter(model, resolver, tensor_arena, arena_size);
     if (!interpreter) {
@@ -119,18 +144,31 @@ bool inference_yolo_init(void) {
         tensor_arena = nullptr;
         return false;
     }
+    ESP_LOGI(TAG, "Interprete creato con successo!");
+    
+    ESP_LOGI(TAG, "Allocazione tensori...");
+    
+    // Debug: stampa informazioni sui tensori di input/output
+    size_t input_tensor_count = interpreter->inputs_size();
+    size_t output_tensor_count = interpreter->outputs_size();
+    ESP_LOGI(TAG, "Numero tensori input: %zu", input_tensor_count);
+    ESP_LOGI(TAG, "Numero tensori output: %zu", output_tensor_count);
     
     // Alloca tensori
+    ESP_LOGI(TAG, "Chiamata AllocateTensors()...");
     TfLiteStatus allocate_status = interpreter->AllocateTensors();
+    ESP_LOGI(TAG, "AllocateTensors() completata con status: %d", allocate_status);
     ESP_LOGI(TAG, "Tensor Arena effettivamente usata: %d bytes", interpreter->arena_used_bytes());
+    
     if (allocate_status != kTfLiteOk) {
-        ESP_LOGE(TAG, "Allocazione tensor fallita");
+        ESP_LOGE(TAG, "Allocazione tensor fallita con status: %d", allocate_status);
         delete interpreter;
         interpreter = nullptr;
         heap_caps_free(tensor_arena);
         tensor_arena = nullptr;
         return false;
     }
+    ESP_LOGI(TAG, "Tensori allocati con successo!");
     
     ESP_LOGI(TAG, "Inizializzazione YOLO completata!");
     return true;
