@@ -13,8 +13,8 @@
 static const char* TAG = "INFERENCE";
 
 //risorse e puntatori per il modello Yolo
-extern const uint8_t yolo11n_full_integer_quant_tflite_start[] asm("_binary_yolo11n_full_integer_quant_tflite_start");
-extern const uint8_t yolo11n_full_integer_quant_tflite_end[] asm("_binary_yolo11n_full_integer_quant_tflite_end");
+extern const uint8_t yolo11n_float32_tflite_start[] asm("_binary_yolo11n_float32_tflite_start");
+extern const uint8_t yolo11n_float32_tflite_end[] asm("_binary_yolo11n_float32_tflite_end");
 static const tflite::Model* model = nullptr;
 static tflite::MicroInterpreter* interpreter = nullptr;
 static uint8_t* tensor_arena = nullptr;
@@ -62,11 +62,11 @@ bool inference_yolo_init(void) {
     printf("PSRAM libera prima di inizializzare il modello: %d bytes\n", heap_caps_get_free_size(MALLOC_CAP_SPIRAM));
     
     // Calcola dimensione modello
-    size_t model_size = yolo11n_full_integer_quant_tflite_end - yolo11n_full_integer_quant_tflite_start;
+    size_t model_size = yolo11n_float32_tflite_end - yolo11n_float32_tflite_start;
     ESP_LOGI(TAG, "Dimensione modello: %zu bytes (%.1f MB)", model_size, (float)model_size / 1024 / 1024);
     
     // Carica modello
-    model = tflite::GetModel(yolo11n_full_integer_quant_tflite_start);
+    model = tflite::GetModel(yolo11n_float32_tflite_start);
     if (!model) {
         ESP_LOGE(TAG, "Impossibile caricare modello");
         return false;

@@ -155,7 +155,7 @@ static void cli_task(void *pvParameters){
     printf("-: riduci risoluzione fotocamera\n");
     printf("w: Avvia il webserver per web UI\n");
     printf("s: Scatta foto ed esegui inferenza face detection\n");
-    printf("f: Inizializza solo il modello di inferenza di face detection\n");
+    printf("f: Inizializza il modello di inferenza Yolo esterno\n");
     printf("e: Esci\n");
     printf("===========================\n");
     printf("COMANDI DI MONITORAGGIO\n"); 
@@ -263,7 +263,7 @@ static void cli_task(void *pvParameters){
             printf("-: riduci risoluzione fotocamera\n");
             printf("w: Avvia il webserver per web UI\n");
             printf("s: Scatta foto ed esegui inferenza face detection\n");
-            printf("f: Inizializza solo il modello di inferenza di face detection\n");
+            printf("f: Inizializza il modello di inferenza Yolo esterno\n");
             printf("e: Esci\n");
             printf("===========================\n");
             printf("COMANDI DI MONITORAGGIO\n"); 

@@ -18,6 +18,5 @@ GPIO ESP32CAM
 ISTRUZIONI E APPUNTI
 - Ricorda di avere sia pc che esp collegati allo stesso hotspot
 - Ricorda di killare il terminale del seriale prima di fare upload nuovo firmware
-- Se cambi porta di collegamento esp a mac, cambia "upload_port" in platformio.ini
-- che tu stia usando una esp32cam oppure un esp32, cambia "board" in platformio.ini
+- Ricorda che se nel terminale è attivo il venv dei notebooks, devi fare "deactivate"
 - "172.20.10.3" ip per webserver
