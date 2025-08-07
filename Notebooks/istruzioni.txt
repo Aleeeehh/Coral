@@ -5,8 +5,9 @@ GUIDA BASE DIPENDENZE
 - seleziona in alto a destra il kernel "select another kernel-> jupyter kernel->esp32cam python (notebooks)"
 - Nuovo venv/kernel che contiene sia dipendenze notebooks che esp-detection -> "NewNotebooks"
 - esp-detection è inclusa nel gitignore, per riottenerla clonarla nella cartella notebooks con "git clone https://github.com/espressif/esp-detection"
+- dentro "esp-detection/quantize.py" modifica i "from ppq" in "from esp_ppq"
 
 OGNI VOLTA CHE AGGIUNGI UNA DIPENDENZA ALL'AMBIENTE VIRTUALE
-- crea un nuovo kernel con l'attuale venv: "python -m ipykernel install --user --name=esp32cam_venv --display-name="NOMEKERNEL"
+- crea un nuovo kernel con l'attuale venv: python -m ipykernel install --user --name=esp32cam_venv --display-name="NOMEKERNEL"
 - Riavvia l'IDE
 - Seleziona il kernel appena creato

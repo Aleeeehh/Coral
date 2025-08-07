@@ -16,7 +16,7 @@ GPIO ESP32CAM
 
 
 ISTRUZIONI E APPUNTI
+- Ricorda che se nel terminale è attivo il venv dei notebooks, devi fare "deactivate"
 - Ricorda di avere sia pc che esp collegati allo stesso hotspot
 - Ricorda di killare il terminale del seriale prima di fare upload nuovo firmware
-- Ricorda che se nel terminale è attivo il venv dei notebooks, devi fare "deactivate"
 - "172.20.10.3" ip per webserver

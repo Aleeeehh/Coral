@@ -10,14 +10,28 @@
 #include "monitor.h"
 #include <string.h>
 
+// ESP-DL includes
+//#include "dl_model.hpp"
+#include "dl_tool.hpp" 
+#include "dl_model_base.hpp"
+#include "fbs_loader.hpp"
+
+//#include "esp_dl_package.h"
+
 static const char* TAG = "INFERENCE";
 
-//risorse e puntatori per il modello Yolo
-extern const uint8_t yolo11n_float32_tflite_start[] asm("_binary_yolo11n_float32_tflite_start");
-extern const uint8_t yolo11n_float32_tflite_end[] asm("_binary_yolo11n_float32_tflite_end");
-static const tflite::Model* model = nullptr;
-static tflite::MicroInterpreter* interpreter = nullptr;
-static uint8_t* tensor_arena = nullptr;
+//risorse e puntatori per il modello Yolo in tflite
+//extern const uint8_t yolo11n_float32_tflite_start[] asm("_binary_yolo11n_float32_tflite_start");
+//extern const uint8_t yolo11n_float32_tflite_end[] asm("_binary_yolo11n_float32_tflite_end");
+//static const tflite::Model* model = nullptr;
+//static tflite::MicroInterpreter* interpreter = nullptr;
+//static uint8_t* tensor_arena = nullptr;
+
+//risorse e puntatori per il modello Yolo in espdl
+//extern const uint8_t yolo11n_int8_espdl_end[] asm("_binary_yolo11n_int8_espdl_end");
+
+static dl::Model* yolo_model = nullptr;
+static dl::tool::Latency latency;
 
 // Variabile globale per il sistema di inferenza (singleton per compatibilità)
 static inference_t g_inference;
@@ -56,6 +70,37 @@ bool inference_init(inference_t *inf) {
     return true;
 }
 
+//funzione per inizializzare il modello Yolo in espdl
+bool inference_yolo_init(void) {
+    ESP_LOGI(TAG, "Inizializzazione sistema di inferenza YOLO con ESP-DL...");
+
+    printf("PSRAM libera prima di inizializzare il modello: %d bytes\n", heap_caps_get_free_size(MALLOC_CAP_SPIRAM));
+
+    extern const uint8_t yolo11n[] asm("_binary_yolo11n_espdl_start");
+    
+    // Aggiungi questi log di debug
+    ESP_LOGI(TAG, "Puntatore al modello: %p", yolo11n);
+    ESP_LOGI(TAG, "Primi 16 bytes del modello:");
+    for(int i = 0; i < 16; i++) {
+        printf("%02x ", yolo11n[i]);
+    }
+    printf("\n");
+
+    ESP_LOGI(TAG, "Tentativo di creazione del modello ESP-DL...");
+    
+    // Proviamo con un memory manager più conservativo
+    yolo_model = new dl::Model((const char *)yolo11n, fbs::MODEL_LOCATION_IN_FLASH_RODATA, 0, dl::MEMORY_MANAGER_GREEDY, nullptr, false);
+    
+    if (!yolo_model) {
+        ESP_LOGE(TAG, "Impossibile creare modello ESP-DL");
+        return false;
+    }
+    
+    ESP_LOGI(TAG, "Modello YOLO ESP-DL caricato con successo!");
+    return true;
+}
+//funzione per inizializzare il modello Yolo in tflite
+/*
 bool inference_yolo_init(void) {
     ESP_LOGI(TAG, "Inizializzazione sistema di inferenza Yolo...");
 
@@ -173,6 +218,7 @@ bool inference_yolo_init(void) {
     ESP_LOGI(TAG, "Inizializzazione YOLO completata!");
     return true;
 }
+*/
 
 bool inference_face_detector_init(inference_t *inf) {
     if (!inf || !inf->initialized) {

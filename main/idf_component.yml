@@ -18,4 +18,3 @@ dependencies:
   espressif/esp-dl: '*'
   espressif/human_face_detect: '*'
   espressif/esp-tflite-micro: '*'
-  espressif/esp-detection: '*'
