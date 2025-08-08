@@ -83,6 +83,15 @@ static void webserver_task(void *pvParameters)
     }
     ESP_LOGI(TAG, "Sistema di inferenza inizializzato con successo");
     
+    // Inizializza il modello YOLO
+    ESP_LOGI(TAG, "Inizializzazione modello YOLO...");
+    if (!inference_yolo_init_legacy()) {
+        ESP_LOGE(TAG, "Errore inizializzazione modello YOLO");
+        vTaskDelete(NULL);
+        return;
+    }
+    ESP_LOGI(TAG, "Modello YOLO inizializzato con successo");
+    
 
     // Inizializza il webserver
     esp_err_t ret = webserver_init_legacy();

@@ -295,6 +295,65 @@ function decrementResolution() {
         });
     }
 
+    function detectPerson()
+    {
+        console.log('🤖 Avvio rilevamento persona...');
+        
+        fetch('/yolo_inference', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            console.log('✅ Risultato inferenza YOLO:', data);
+            
+            if (data.success) {
+                const result = data.person_detected ? `✅ ${data.num_persons} PERSONA/E RILEVATA/E` : '❌ NESSUNA PERSONA';
+                const statusDiv = document.getElementById('status');
+                
+                // Calcola confidence media se ci sono persone
+                let avgConfidence = 0;
+                if (data.person_detected && data.persons && data.persons.length > 0) {
+                    const totalConfidence = data.persons.reduce((sum, person) => sum + person.confidence, 0);
+                    avgConfidence = (totalConfidence / data.persons.length * 100).toFixed(1);
+                }
+                
+                // Aggiorna il div status con il risultato
+                statusDiv.textContent = `${result} | Confidence media: ${avgConfidence}% | Tempo: ${data.inference_time_ms}ms`;
+                
+                // Applica la classe CSS appropriata
+                statusDiv.className = 'status ' + (data.person_detected ? 'person-detected' : 'no-person');
+                
+                /*
+                // Disegna i rettangoli per tutte le persone rilevate
+                if (data.person_detected && data.persons && data.persons.length > 0) {
+                    // Per ora disegna solo la prima persona
+                    const firstPerson = data.persons[0];
+                    if (firstPerson.bounding_box) {
+                        drawPersonBox(firstPerson.bounding_box);
+                    }
+                } else {
+                    hidePersonBox();
+                }
+                    */
+                // Aggiorna la foto
+                updatePhoto();
+            } else {
+                const statusDiv = document.getElementById('status');
+                statusDiv.textContent = '❌ Errore durante l\'inferenza YOLO';
+                statusDiv.className = 'status error';
+            }
+        })
+        .catch(error => {
+            console.error('❌ Errore inferenza YOLO:', error);
+            const statusDiv = document.getElementById('status');
+            statusDiv.textContent = '❌ Errore di connessione YOLO';
+            statusDiv.className = 'status error';
+        });
+    }
+
     function drawFaceBox(boundingBox) {
         const overlay = document.getElementById('face-overlay');
         const img = document.getElementById('photo');
@@ -420,6 +479,75 @@ async function capturePhoto() {
     }
 }
 
+    function drawPersonBox(boundingBox) {
+        const canvas = document.getElementById('photoCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        // Rimuovi box precedenti
+        hidePersonBox();
+        
+        // Crea nuovo elemento per il box
+        const personBox = document.createElement('div');
+        personBox.id = 'personBox';
+        personBox.className = 'bounding-box person-box';
+        personBox.style.position = 'absolute';
+        personBox.style.border = '3px solid #00ff00'; // Verde per persone
+        personBox.style.backgroundColor = 'rgba(0, 255, 0, 0.1)';
+        personBox.style.pointerEvents = 'none';
+        
+        // Posiziona il box
+        const [x1, y1, x2, y2] = boundingBox;
+        const scaleX = canvas.width / 320; // Assumiamo input 320x320
+        const scaleY = canvas.height / 320;
+        
+        personBox.style.left = (x1 * scaleX) + 'px';
+        personBox.style.top = (y1 * scaleY) + 'px';
+        personBox.style.width = ((x2 - x1) * scaleX) + 'px';
+        personBox.style.height = ((y2 - y1) * scaleY) + 'px';
+        
+        // Aggiungi al container
+        const container = document.getElementById('photoContainer');
+        container.appendChild(personBox);
+    }
+
+    function hidePersonBox() {
+        const personBox = document.getElementById('personBox');
+        if (personBox) {
+            personBox.remove();
+        }
+    }
+
+    // Funzione per testare drawFaceBox manualmente
+    function testDrawFaceBox() {
+        const x1 = parseInt(document.getElementById('x1').value);
+        const y1 = parseInt(document.getElementById('y1').value);
+        const x2 = parseInt(document.getElementById('x2').value);
+        const y2 = parseInt(document.getElementById('y2').value);
+        
+        // Validazione input
+        if (isNaN(x1) || isNaN(y1) || isNaN(x2) || isNaN(y2)) {
+            alert('❌ Inserisci valori numerici validi per tutte le coordinate!');
+            return;
+        }
+        
+        if (x1 >= x2 || y1 >= y2) {
+            alert('❌ Coordinate non valide! x1 deve essere < x2 e y1 deve essere < y2');
+            return;
+        }
+        
+        // Crea array bounding box nel formato [x1, y1, x2, y2]
+        const boundingBox = [x1, y1, x2, y2];
+        
+        console.log('🧪 Test manuale drawFaceBox con coordinate:', boundingBox);
+        
+        // Chiama la funzione drawFaceBox esistente
+        drawFaceBox(boundingBox);
+        
+        // Mostra feedback
+        document.getElementById('status').textContent = `✅ Box disegnato: [${x1}, ${y1}, ${x2}, ${y2}]`;
+        document.getElementById('status').className = 'status connected';
+    }
+
     </script>
 </head>
 <body>
@@ -429,7 +557,8 @@ async function capturePhoto() {
         <div id="resolution" class="resolution">Risoluzione: </div>
         <p style="display: flex; flex-wrap: wrap; justify-content: center; gap: 10px;">
             <button class="photo-btn" onclick="capturePhoto()">📸 Scatta Foto</button>
-            <button class="inference-btn" onclick="detectFace()">🤖 Inference</button>
+            <button class="inference-btn" onclick="detectFace()">😁 Face Detection</button>
+            <button class="inference-btn" onclick="detectPerson()">✌️ YOLO11</button>
             <button onclick="changeResolution(1)">⬆️ Aumenta Risoluzione</button>
             <button onclick="changeResolution(0)">⬇️ Diminuisci Risoluzione</button>
         </p>
@@ -438,6 +567,21 @@ async function capturePhoto() {
             <img id="photo" style="max-width: 100%; max-height: 400px;">
             <div id="face-overlay" style="position: absolute; border: 3px solid white; display: none;"></div>
         </div>
+                <!-- Sezione test manuale bounding box -->
+                <div style="margin: 20px; padding: 15px; border: 2px solid #FF6B35; border-radius: 5px; background-color: #fff5f0;">
+                    <h3>🧪 Test Manuale Bounding Box</h3>
+                    <p style="margin: 5px 0; font-size: 14px; color: #666;">
+                        Inserisci le coordinate [x1, y1, x2, y2] per testare drawFaceBox:
+                    </p>
+                    <div style="display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: center;">
+                        <input type="number" id="x1" placeholder="x1" style="width: 60px; padding: 5px; border: 1px solid #ccc; border-radius: 3px;">
+                        <input type="number" id="y1" placeholder="y1" style="width: 60px; padding: 5px; border: 1px solid #ccc; border-radius: 3px;">
+                        <input type="number" id="x2" placeholder="x2" style="width: 60px; padding: 5px; border: 1px solid #ccc; border-radius: 3px;">
+                        <input type="number" id="y2" placeholder="y2" style="width: 60px; padding: 5px; border: 1px solid #ccc; border-radius: 3px;">
+                        <button onclick="testDrawFaceBox()" style="background-color: #FF6B35; color: white; padding: 8px 15px; border: none; border-radius: 3px; cursor: pointer;">🎯 Disegna Box</button>
+                        <button onclick="hideFaceBox()" style="background-color: #666; color: white; padding: 8px 15px; border: none; border-radius: 3px; cursor: pointer;">❌ Nascondi Box</button>
+                    </div>
+                </div>
     </div>
 </body>
 </html>

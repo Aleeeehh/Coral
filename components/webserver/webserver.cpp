@@ -254,6 +254,41 @@ static esp_err_t inference_post_handler(httpd_req_t *req)
     return ESP_OK;
 }
 
+// Handler per inferenza YOLO
+static esp_err_t yolo_inference_post_handler(httpd_req_t *req)
+{
+    webserver_t *ws = get_webserver_instance();
+    ESP_LOGI(TAG, "Richiesta inferenza YOLO ricevuta");
+    
+    // Controlla se il sistema di inferenza è inizializzato
+    extern inference_t g_inference;
+    if (!g_inference.initialized) {
+        ESP_LOGE(TAG, "Sistema di inferenza non inizializzato");
+        httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Sistema non inizializzato");
+        return ESP_FAIL;
+    }
+    
+    if (!g_inference.yolo_model_initialized) {
+        ESP_LOGE(TAG, "Modello YOLO non inizializzato");
+        httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Modello YOLO non inizializzato");
+        return ESP_FAIL;
+    }
+    
+    // Usa lo stesso flusso del CLI: camera_capture_and_inference
+    inference_result_t result;
+    esp_err_t ret = camera_capture_and_inference(&ws->camera, &result);
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "Errore durante camera_capture_and_inference");
+        httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Errore acquisizione foto");
+        return ESP_FAIL;
+    }
+    
+    ESP_LOGI(TAG, "Inferenza YOLO completata con successo");
+    
+
+    return ESP_OK;
+}
+
 // Tabella degli URI handler
 static const httpd_uri_t uri_handlers[] = {
     {.uri = "/", //manda il frontend al browser
@@ -279,6 +314,10 @@ static const httpd_uri_t uri_handlers[] = {
     {.uri = "/inference",
      .method = HTTP_POST,
      .handler = inference_post_handler,
+     .user_ctx = NULL},
+    {.uri = "/yolo_inference",
+     .method = HTTP_POST,
+     .handler = yolo_inference_post_handler,
      .user_ctx = NULL}};
 
 

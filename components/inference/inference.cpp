@@ -2,6 +2,7 @@
 #include "esp_log.h"
 #include "esp_timer.h"
 #include "esp_heap_caps.h"
+#include <string.h>
 #include "dl_image.hpp"
 #include "human_face_detect.hpp"
 #include "tensorflow/lite/micro/micro_interpreter.h"
@@ -15,6 +16,7 @@
 #include "dl_tool.hpp" 
 #include "dl_model_base.hpp"
 #include "fbs_loader.hpp"
+#include "dl_detect_yolo11_postprocessor.hpp"
 
 //#include "esp_dl_package.h"
 
@@ -33,7 +35,7 @@ static const char* TAG = "INFERENCE";
 static dl::tool::Latency latency;
 
 // Variabile globale per il sistema di inferenza (singleton per compatibilità)
-static inference_t g_inference;
+inference_t g_inference;
 uint32_t start_time_full_inference;
 uint32_t end_time_full_inference;
 uint32_t start_time_processing;
@@ -44,7 +46,7 @@ uint32_t start_time_postprocessing;
 uint32_t end_time_postprocessing;
 
 // Funzione helper per ottenere l'istanza globale (per compatibilità con codice esistente)
-static inference_t* get_inference_instance(void) {
+inference_t* get_inference_instance(void) {
     return &g_inference;
 }
 
@@ -95,7 +97,7 @@ bool inference_yolo_init(inference_t *inf) {
         ESP_LOGE(TAG, "Impossibile creare modello ESP-DL");
         return false;
     }
-
+    
     inf->yolo_model_initialized = true;
     
     ESP_LOGI(TAG, "Modello YOLO ESP-DL inizializzato con successo!");
@@ -110,7 +112,7 @@ bool inference_yolo_detection(inference_t *inf, const uint8_t* jpeg_data, size_t
         ESP_LOGE(TAG, "Sistema di inferenza non inizializzato");
         return false;
     }
-
+    
     // Debug memoria
     ESP_LOGI(TAG, "PSRAM libera: %d bytes", heap_caps_get_free_size(MALLOC_CAP_SPIRAM));
     ESP_LOGI(TAG, "Memoria interna libera: %d bytes", heap_caps_get_free_size(MALLOC_CAP_INTERNAL));
@@ -126,7 +128,7 @@ bool inference_yolo_detection(inference_t *inf, const uint8_t* jpeg_data, size_t
         ESP_LOGE(TAG, "Errore decodifica JPEG");
         return false;
     }
-
+    
     ESP_LOGI(TAG, "Immagine decodificata: %dx%d", img.width, img.height);
 
     // Ridimensiona a 320x320 (dimensione input YOLO) PER TEST
@@ -211,10 +213,6 @@ bool inference_yolo_detection(inference_t *inf, const uint8_t* jpeg_data, size_t
                  shape[0], shape[1], shape[2], shape[3]);
     }
     
-    // Debug: stampa informazioni sul modello
-    ESP_LOGI(TAG, "Puntatore modello: %p", model);
-    ESP_LOGI(TAG, "Puntatore dati float: %p", float_data);
-    
     // Prova con il metodo corretto per passare input
     if (!inputs.empty()) {
         auto input_tensor = inputs.begin()->second;
@@ -233,7 +231,7 @@ bool inference_yolo_detection(inference_t *inf, const uint8_t* jpeg_data, size_t
             ESP_LOGI(TAG, "=== POST-PROCESSING ===");
             auto outputs = model->get_outputs();
             
-            for (auto& output : outputs) {
+            for (auto& output : outputs) { 
                 auto shape = output.second->get_shape();
                 ESP_LOGI(TAG, "Output: %s, shape: [%d, %d, %d, %d]", 
                          output.first.c_str(), 
@@ -251,10 +249,6 @@ bool inference_yolo_detection(inference_t *inf, const uint8_t* jpeg_data, size_t
                     
                     if (output.second->get_dtype() == dl::DATA_TYPE_INT8) {
                         int8_t* data = output.second->get_element_ptr<int8_t>();
-                        ESP_LOGI(TAG, "Primi 10 valori INT8 di %s:", output.first.c_str());
-                        for (int i = 0; i < 10 && i < output.second->get_size(); i++) {
-                            ESP_LOGI(TAG, "  [%d]: %d", i, data[i]);
-                        }
                         
                         // Dequantizza e cerca confidence massima
                         float max_confidence = -999999.0f;
@@ -320,23 +314,64 @@ bool inference_yolo_detection(inference_t *inf, const uint8_t* jpeg_data, size_t
                                     int8_t* box_data = box_output->second->get_element_ptr<int8_t>();
                                     int box_base_idx = (person_y * box_width + person_x) * 64;  // 64 valori per box
                                     
-                                    // I primi 4 valori sono [x, y, w, h] della bounding box
-                                    float box_x = (box_data[box_base_idx + 0] - 0) * 0.25f;
-                                    float box_y = (box_data[box_base_idx + 1] - 0) * 0.25f;
-                                    float box_w = (box_data[box_base_idx + 2] - 0) * 0.25f;
-                                    float box_h = (box_data[box_base_idx + 3] - 0) * 0.25f;
+                                    // Debug: stampa i primi valori del box
+                                    ESP_LOGI(TAG, "Primi 10 valori del box: %d, %d, %d, %d, %d, %d, %d, %d, %d, %d",
+                                             box_data[box_base_idx + 0], box_data[box_base_idx + 1], 
+                                             box_data[box_base_idx + 2], box_data[box_base_idx + 3],
+                                             box_data[box_base_idx + 4], box_data[box_base_idx + 5],
+                                             box_data[box_base_idx + 6], box_data[box_base_idx + 7],
+                                             box_data[box_base_idx + 8], box_data[box_base_idx + 9]);
                                     
-                                    ESP_LOGI(TAG, "Bounding Box: x=%.3f, y=%.3f, w=%.3f, h=%.3f", 
+                                    // Prova scale diversi per le bounding boxes
+                                    // Le bounding boxes potrebbero avere scale diverso dagli score
+                                    float box_scale = 0.25f;  // Prova prima con lo stesso scale
+                                    
+                                    // Dequantizza i primi 4 valori [x, y, w, h]
+                                    float box_x = (box_data[box_base_idx + 0] - 0) * box_scale;
+                                    float box_y = (box_data[box_base_idx + 1] - 0) * box_scale;
+                                    float box_w = (box_data[box_base_idx + 2] - 0) * box_scale;
+                                    float box_h = (box_data[box_base_idx + 3] - 0) * box_scale;
+                                    
+                                    ESP_LOGI(TAG, "Bounding Box (normalizzato): x=%.3f, y=%.3f, w=%.3f, h=%.3f", 
                                              box_x, box_y, box_w, box_h);
                                     
-                                    // Converti in coordinate pixel (320x320)
-                                    int pixel_x = (int)(box_x * 320);
-                                    int pixel_y = (int)(box_y * 320);
-                                    int pixel_w = (int)(box_w * 320);
-                                    int pixel_h = (int)(box_h * 320);
-                                    
-                                    ESP_LOGI(TAG, "Bounding Box (pixel): x=%d, y=%d, w=%d, h=%d", 
-                                             pixel_x, pixel_y, pixel_w, pixel_h);
+                                    // Verifica che i valori siano nel range [0,1]
+                                    if (box_x >= 0.0f && box_x <= 1.0f && 
+                                        box_y >= 0.0f && box_y <= 1.0f &&
+                                        box_w >= 0.0f && box_w <= 1.0f &&
+                                        box_h >= 0.0f && box_h <= 1.0f) {
+                                        
+                                        // Converti in coordinate pixel (320x320)
+                                        int pixel_x = (int)(box_x * 320);
+                                        int pixel_y = (int)(box_y * 320);
+                                        int pixel_w = (int)(box_w * 320);
+                                        int pixel_h = (int)(box_h * 320);
+                                        
+                                        ESP_LOGI(TAG, "Bounding Box (pixel): x=%d, y=%d, w=%d, h=%d", 
+                                                 pixel_x, pixel_y, pixel_w, pixel_h);
+                                        
+                                        // Verifica che sia dentro l'immagine
+                                        if (pixel_x >= 0 && pixel_x < 320 && 
+                                            pixel_y >= 0 && pixel_y < 320 &&
+                                            pixel_w > 0 && pixel_w <= 320 &&
+                                            pixel_h > 0 && pixel_h <= 320) {
+                                            ESP_LOGI(TAG, "Bounding Box VALIDA!");
+                                        } else {
+                                            ESP_LOGW(TAG, "Bounding Box fuori range!");
+                                        }
+                                    } else {
+                                        ESP_LOGW(TAG, "Bounding Box valori normalizzati fuori range [0,1]!");
+                                        
+                                        // Prova con scale diverso
+                                        box_scale = 0.1f;  // Prova scale più piccolo
+                                        box_x = (box_data[box_base_idx + 0] - 0) * box_scale;
+                                        box_y = (box_data[box_base_idx + 1] - 0) * box_scale;
+                                        box_w = (box_data[box_base_idx + 2] - 0) * box_scale;
+                                        box_h = (box_data[box_base_idx + 3] - 0) * box_scale;
+                                        
+                                        ESP_LOGI(TAG, "Bounding Box (scale=0.1): x=%.3f, y=%.3f, w=%.3f, h=%.3f", 
+                                                 box_x, box_y, box_w, box_h);
+                                    }
                                 }
                             }
                         }
@@ -360,7 +395,38 @@ bool inference_yolo_detection(inference_t *inf, const uint8_t* jpeg_data, size_t
     } 
 
     ESP_LOGI(TAG, "Inferenza completata!");    
-    
+
+    // Dopo i nostri log manuali
+    ESP_LOGI(TAG, "=== TESTING ESP-DL POSTPROCESSOR ===");
+
+    // Parametri per il postprocessor
+    float score_threshold = 0.3f;
+    float nms_threshold = 0.5f;
+    int resize_scale_x = 320;  // Dimensione input
+
+    // Crea le stages per YOLO11 (3 scale: 40x40, 20x20, 10x10)
+    std::vector<dl::detect::anchor_point_stage_t> stages = {
+        {8, 8, 0, 0},   // score0/box0: 40x40, stride 8
+        {16, 16, 0, 0}, // score1/box1: 20x20, stride 16  
+        {32, 32, 0, 0}  // score2/box2: 10x10, stride 32
+    };
+
+    // Crea il postprocessor
+    dl::detect::yolo11PostProcessor postprocessor(model, score_threshold, nms_threshold, resize_scale_x, stages);
+
+    // Esegui postprocessing
+    postprocessor.postprocess();
+
+    // Ottieni i risultati (metodo corretto)
+    auto results = postprocessor.get_result(320, 320);  // width=320, height=320
+
+    // Stampa i risultati
+    ESP_LOGI(TAG, "Risultati ESP-DL postprocessor: %d detection", results.size());
+    for (const auto& result : results) {
+        ESP_LOGI(TAG, "Risultato: score=%.6f, box: [%d,%d,%d,%d]", 
+                 result.score, result.box[0], result.box[1], result.box[2], result.box[3]);
+    }
+
     // Libera memoria
     heap_caps_free(img.data);
     heap_caps_free(resized_img.data);
@@ -372,6 +438,7 @@ bool inference_yolo_detection(inference_t *inf, const uint8_t* jpeg_data, size_t
 }
 
 bool inference_face_detector_init(inference_t *inf) {
+    
     if (!inf || !inf->initialized) {
         ESP_LOGE(TAG, "Sistema di inferenza non inizializzato");
         return false;

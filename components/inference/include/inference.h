@@ -11,6 +11,7 @@
 
 
 #define MAX_FACES 5 //numero massimo di facce rilevabili in una foto
+#define MAX_YOLO_DETECTIONS 10 //numero massimo di detections YOLO
 
 #ifdef __cplusplus
 extern "C" {
@@ -25,6 +26,14 @@ typedef struct {
     float confidence; // Confidenza del viso
 } face_t;
 
+// Struttura per i risultati YOLO
+typedef struct {
+    float score; // Confidence score
+    uint32_t box[4]; // Bounding box [x, y, width, height]
+    uint32_t class_id; // Class ID
+    char class_name[32]; // Class name
+} yolo_detection_t;
+
 typedef struct {
     bool face_detected;
     uint32_t preprocessing_time_ms; //tempo di esecuzione preprocessing
@@ -33,6 +42,10 @@ typedef struct {
     uint32_t full_inference_time_ms; //tempo di esecuzione totale inferenza (preprocessing + inferenza + postprocessing)
     uint32_t num_faces; // Numero di facce rilevate
     face_t faces[MAX_FACES];
+    // Campi per YOLO
+    bool person_detected;
+    uint32_t num_yolo_detections;
+    yolo_detection_t yolo_detections[MAX_YOLO_DETECTIONS];
 } inference_result_t;
 
 // Struttura per le statistiche del sistema
@@ -141,6 +154,27 @@ bool inference_yolo_init_legacy(void);
  * @return true se l'inferenza è riuscita, false altrimenti
  */
 bool inference_process_image_yolo(const uint8_t* jpeg_data, size_t jpeg_size, inference_result_t* result);
+
+/**
+ * @brief Elabora un'immagine JPEG e esegue l'inferenza YOLO detection
+ * @param inf Puntatore alla struttura inference
+ * @param jpeg_data Puntatore ai dati JPEG
+ * @param jpeg_size Dimensione dei dati JPEG
+ * @param result Puntatore alla struttura risultato
+ * @return true se l'inferenza è riuscita, false altrimenti
+ */
+bool inference_yolo_detection(inference_t *inf, const uint8_t* jpeg_data, size_t jpeg_size, inference_result_t* result);
+
+/**
+ * @brief Ottiene l'istanza globale del sistema di inferenza (per compatibilità)
+ * @return Puntatore all'istanza globale
+ */
+inference_t* get_inference_instance(void);
+
+/**
+ * @brief Variabile globale del sistema di inferenza (per compatibilità)
+ */
+extern inference_t g_inference;
 
 
 #ifdef __cplusplus
