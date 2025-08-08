@@ -182,7 +182,7 @@ bool inference_yolo_detection(inference_t *inf, const uint8_t* jpeg_data, size_t
     // Esegui inferenza
     ESP_LOGI(TAG, "Avvio inferenza YOLO...");
     dl::Model* model = static_cast<dl::Model*>(inf->yolo_model);
-
+        /*
         // === DEBUG MODELLO ===
         ESP_LOGI(TAG, "=== INFO MODELLO ===");
         model->print();
@@ -193,8 +193,8 @@ bool inference_yolo_detection(inference_t *inf, const uint8_t* jpeg_data, size_t
         ESP_LOGI(TAG, "=== INFO MODULI ===");
         auto module_info = model->get_module_info();
         model->print_module_info(module_info);
-        
-            ESP_LOGI(TAG, "=== INFO INPUT/OUTPUT ===");
+        */
+    ESP_LOGI(TAG, "=== INFO INPUT/OUTPUT ===");
     auto inputs = model->get_inputs();
     for (auto& input : inputs) {
         auto shape = input.second->get_shape();
@@ -215,7 +215,149 @@ bool inference_yolo_detection(inference_t *inf, const uint8_t* jpeg_data, size_t
     ESP_LOGI(TAG, "Puntatore modello: %p", model);
     ESP_LOGI(TAG, "Puntatore dati float: %p", float_data);
     
-    model->run((dl::TensorBase*)float_data); 
+    // Prova con il metodo corretto per passare input
+    if (!inputs.empty()) {
+        auto input_tensor = inputs.begin()->second;
+        ESP_LOGI(TAG, "Input tensor: %s", inputs.begin()->first.c_str());
+        
+        // Assegna i dati usando l'API corretta di ESP-DL
+        std::vector<int> shape = {1, 320, 320, 3};  // batch, height, width, channels
+        bool success = input_tensor->assign(shape, float_data, 0, dl::DATA_TYPE_FLOAT);
+        
+        if (success) {
+            ESP_LOGI(TAG, "Dati assegnati con successo al tensore");
+            // Esegui inferenza
+            model->run();
+            
+            // Post-processing: estrai i risultati
+            ESP_LOGI(TAG, "=== POST-PROCESSING ===");
+            auto outputs = model->get_outputs();
+            
+            for (auto& output : outputs) {
+                auto shape = output.second->get_shape();
+                ESP_LOGI(TAG, "Output: %s, shape: [%d, %d, %d, %d]", 
+                         output.first.c_str(), 
+                         shape[0], shape[1], shape[2], shape[3]);
+                
+                // Estrai alcuni valori di esempio
+                if (output.first.find("score") != std::string::npos) {
+                    ESP_LOGI(TAG, "Analizzando score tensor: %s", output.first.c_str());
+                    ESP_LOGI(TAG, "Tipo dati tensore: %s", output.second->get_dtype_string());
+                    
+                    // Parametri di dequantizzazione (da yolo11n.info)
+                    // Gli output hanno exponent: -2, quindi scale = 2^(-2) = 0.25
+                    float scale = 0.25f;        // Scale corretto dal file .info
+                    int zero_point = 0;         // Zero point per quantizzazione simmetrica INT8
+                    
+                    if (output.second->get_dtype() == dl::DATA_TYPE_INT8) {
+                        int8_t* data = output.second->get_element_ptr<int8_t>();
+                        ESP_LOGI(TAG, "Primi 10 valori INT8 di %s:", output.first.c_str());
+                        for (int i = 0; i < 10 && i < output.second->get_size(); i++) {
+                            ESP_LOGI(TAG, "  [%d]: %d", i, data[i]);
+                        }
+                        
+                        // Dequantizza e cerca confidence massima
+                        float max_confidence = -999999.0f;
+                        int max_idx = -1;
+                        ESP_LOGI(TAG, "Dequantizzando e cercando confidence massima...");
+                        
+                        for (int i = 0; i < output.second->get_size(); i++) {
+                            // Dequantizza: (int8 - zero_point) * scale
+                            float dequantized = (data[i] - zero_point) * scale;
+                            
+                            if (dequantized > max_confidence) {
+                                max_confidence = dequantized;
+                                max_idx = i;
+                            }
+                        }
+                        
+                        ESP_LOGI(TAG, "Confidence massima dequantizzata in %s: %.6f (indice %d)", 
+                                 output.first.c_str(), max_confidence, max_idx);
+                        
+                        // Cerca specificamente la classe "person" (indice 0)
+                        float person_confidence = 0.0f;
+                        int person_x = -1, person_y = -1;
+                        
+                        // Per ogni posizione nel tensore
+                        auto shape = output.second->get_shape();
+                        int height = shape[1];  // 40, 20, o 10
+                        int width = shape[2];   // 40, 20, o 10
+                        
+                        for (int y = 0; y < height; y++) {
+                            for (int x = 0; x < width; x++) {
+                                int base_idx = (y * width + x) * 80;  // 80 classi per posizione
+                                float dequantized = (data[base_idx] - zero_point) * scale;  // Classe 0 (person)
+                                
+                                if (dequantized > person_confidence) {
+                                    person_confidence = dequantized;
+                                    person_x = x;
+                                    person_y = y;
+                                }
+                            }
+                        }
+                        
+                        ESP_LOGI(TAG, "Classe 'person' in %s: confidence=%.6f, pos=(%d,%d)", 
+                                 output.first.c_str(), person_confidence, person_x, person_y);
+                        
+                        // Se troviamo una persona con confidence alta, estrai bounding box
+                        if (person_confidence > 0.3f) {
+                            ESP_LOGI(TAG, "PERSONA RILEVATA in %s!", output.first.c_str());
+                            
+                            // Cerca il tensore box corrispondente
+                            std::string box_name = output.first;
+                            box_name.replace(box_name.find("score"), 5, "box");
+                            
+                            auto box_output = outputs.find(box_name);
+                            if (box_output != outputs.end()) {
+                                ESP_LOGI(TAG, "Trovato tensore box corrispondente: %s", box_name.c_str());
+                                
+                                // Estrai bounding box dalla posizione (person_x, person_y)
+                                auto box_shape = box_output->second->get_shape();
+                                int box_height = box_shape[1];
+                                int box_width = box_shape[2];
+                                
+                                if (person_x < box_width && person_y < box_height) {
+                                    int8_t* box_data = box_output->second->get_element_ptr<int8_t>();
+                                    int box_base_idx = (person_y * box_width + person_x) * 64;  // 64 valori per box
+                                    
+                                    // I primi 4 valori sono [x, y, w, h] della bounding box
+                                    float box_x = (box_data[box_base_idx + 0] - 0) * 0.25f;
+                                    float box_y = (box_data[box_base_idx + 1] - 0) * 0.25f;
+                                    float box_w = (box_data[box_base_idx + 2] - 0) * 0.25f;
+                                    float box_h = (box_data[box_base_idx + 3] - 0) * 0.25f;
+                                    
+                                    ESP_LOGI(TAG, "Bounding Box: x=%.3f, y=%.3f, w=%.3f, h=%.3f", 
+                                             box_x, box_y, box_w, box_h);
+                                    
+                                    // Converti in coordinate pixel (320x320)
+                                    int pixel_x = (int)(box_x * 320);
+                                    int pixel_y = (int)(box_y * 320);
+                                    int pixel_w = (int)(box_w * 320);
+                                    int pixel_h = (int)(box_h * 320);
+                                    
+                                    ESP_LOGI(TAG, "Bounding Box (pixel): x=%d, y=%d, w=%d, h=%d", 
+                                             pixel_x, pixel_y, pixel_w, pixel_h);
+                                }
+                            }
+                        }
+                        ESP_LOGI(TAG, "Confidence massima per classe 'person' in %s: %.6f", 
+                                 output.first.c_str(), person_confidence);
+                        
+                    } else {
+                        float* data = output.second->get_element_ptr<float>();
+                        ESP_LOGI(TAG, "Primi 10 valori FLOAT di %s:", output.first.c_str());
+                        for (int i = 0; i < 10 && i < output.second->get_size(); i++) {
+                            ESP_LOGI(TAG, "  [%d]: %.6f", i, data[i]);
+                        }
+                    }
+                }
+            }
+        } else {
+            ESP_LOGE(TAG, "Errore nell'assegnazione dei dati al tensore");
+        }
+    } else {
+        ESP_LOGE(TAG, "Nessun input trovato nel modello");
+    } 
 
     ESP_LOGI(TAG, "Inferenza completata!");    
     
@@ -228,6 +370,7 @@ bool inference_yolo_detection(inference_t *inf, const uint8_t* jpeg_data, size_t
 
     return true;
 }
+
 bool inference_face_detector_init(inference_t *inf) {
     if (!inf || !inf->initialized) {
         ESP_LOGE(TAG, "Sistema di inferenza non inizializzato");
