@@ -30,3 +30,4 @@ Notebooks/__pycache__/
 Notebooks/*.pyc
 .venv/
 esp-detection/
+esp-ppq/

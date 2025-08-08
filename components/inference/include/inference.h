@@ -7,6 +7,8 @@
 #include "esp_err.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/queue.h"
+#include "dl_model_base.hpp"
+
 
 #define MAX_FACES 5 //numero massimo di facce rilevabili in una foto
 
@@ -45,6 +47,9 @@ typedef struct {
     bool face_detector_initialized;
     inference_stats_t stats;
     void* face_detector; // Puntatore opaco al detector
+    //campi per il modello YOLO
+    dl::Model* yolo_model;
+    bool yolo_model_initialized;
 } inference_t;
 
 /**
@@ -120,7 +125,22 @@ bool inference_init_legacy(void);
  * @brief Inizializza il sistema di inferenza (versione Yolo)
  * @return true se l'inizializzazione è riuscita, false altrimenti
  */
-bool inference_yolo_init(void);
+bool inference_yolo_init(inference_t *inf);
+
+/**
+ * @brief Inizializza il sistema di inferenza (versione Yolo)
+ * @return true se l'inizializzazione è riuscita, false altrimenti
+ */
+bool inference_yolo_init_legacy(void);
+
+/**
+ * @brief Elabora un'immagine JPEG e esegue l'inferenza (versione Yolo)
+ * @param jpeg_data Puntatore ai dati JPEG
+ * @param jpeg_size Dimensione dei dati JPEG
+ * @param result Puntatore alla struttura risultato
+ * @return true se l'inferenza è riuscita, false altrimenti
+ */
+bool inference_process_image_yolo(const uint8_t* jpeg_data, size_t jpeg_size, inference_result_t* result);
 
 
 #ifdef __cplusplus

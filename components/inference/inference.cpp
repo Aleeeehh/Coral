@@ -30,7 +30,6 @@ static const char* TAG = "INFERENCE";
 //risorse e puntatori per il modello Yolo in espdl
 //extern const uint8_t yolo11n_int8_espdl_end[] asm("_binary_yolo11n_int8_espdl_end");
 
-static dl::Model* yolo_model = nullptr;
 static dl::tool::Latency latency;
 
 // Variabile globale per il sistema di inferenza (singleton per compatibilità)
@@ -70,156 +69,165 @@ bool inference_init(inference_t *inf) {
     return true;
 }
 
-//funzione per inizializzare il modello Yolo in espdl
-bool inference_yolo_init(void) {
+//inizializza il modello Yolo in espdl
+bool inference_yolo_init(inference_t *inf) {
+    if (!inf || !inf->initialized) {
+        ESP_LOGE(TAG, "Sistema di inferenza non inizializzato");
+        return false;
+    }
+
+    if (inf->yolo_model_initialized) {
+        ESP_LOGW(TAG, "YOLO model già inizializzato");
+        return true;
+    }
     ESP_LOGI(TAG, "Inizializzazione sistema di inferenza YOLO con ESP-DL...");
 
-    printf("PSRAM libera prima di inizializzare il modello: %d bytes\n", heap_caps_get_free_size(MALLOC_CAP_SPIRAM));
-
     extern const uint8_t yolo11n[] asm("_binary_yolo11n_espdl_start");
-    
-    // Aggiungi questi log di debug
-    ESP_LOGI(TAG, "Puntatore al modello: %p", yolo11n);
-    ESP_LOGI(TAG, "Primi 16 bytes del modello:");
-    for(int i = 0; i < 16; i++) {
-        printf("%02x ", yolo11n[i]);
-    }
-    printf("\n");
 
-    ESP_LOGI(TAG, "Tentativo di creazione del modello ESP-DL...");
+    ESP_LOGI(TAG, "PSRAM libera prima di inizializzare il modello: %d bytes", heap_caps_get_free_size(MALLOC_CAP_SPIRAM));
+
+    // Inizializza il modello ESP-DL
+    inf->yolo_model = new dl::Model((const char *)yolo11n, fbs::MODEL_LOCATION_IN_FLASH_RODATA, 0, dl::MEMORY_MANAGER_GREEDY, nullptr, false);
     
-    // Proviamo con un memory manager più conservativo
-    yolo_model = new dl::Model((const char *)yolo11n, fbs::MODEL_LOCATION_IN_FLASH_RODATA, 0, dl::MEMORY_MANAGER_GREEDY, nullptr, false);
+    ESP_LOGI(TAG, "PSRAM libera dopo aver inizializzato il modello: %d bytes", heap_caps_get_free_size(MALLOC_CAP_SPIRAM));
     
-    if (!yolo_model) {
+    if (!inf->yolo_model) {
         ESP_LOGE(TAG, "Impossibile creare modello ESP-DL");
         return false;
     }
+
+    inf->yolo_model_initialized = true;
     
-    ESP_LOGI(TAG, "Modello YOLO ESP-DL caricato con successo!");
+    ESP_LOGI(TAG, "Modello YOLO ESP-DL inizializzato con successo!");
+    return true;
+
+}
+
+//inferenza con modello Yolo
+bool inference_yolo_detection(inference_t *inf, const uint8_t* jpeg_data, size_t jpeg_size, inference_result_t* result) {
+    
+    if (!inf || !inf->initialized || !inf->yolo_model) {
+        ESP_LOGE(TAG, "Sistema di inferenza non inizializzato");
+        return false;
+    }
+
+    // Debug memoria
+    ESP_LOGI(TAG, "PSRAM libera: %d bytes", heap_caps_get_free_size(MALLOC_CAP_SPIRAM));
+    ESP_LOGI(TAG, "Memoria interna libera: %d bytes", heap_caps_get_free_size(MALLOC_CAP_INTERNAL));
+
+    // Decodifica JPEG in RGB
+    dl::image::jpeg_img_t jpeg_img = {
+        .data = (void*)jpeg_data,
+        .data_len = jpeg_size
+    };
+
+    auto img = sw_decode_jpeg(jpeg_img, dl::image::DL_IMAGE_PIX_TYPE_RGB888);
+    if (!img.data) {
+        ESP_LOGE(TAG, "Errore decodifica JPEG");
+        return false;
+    }
+
+    ESP_LOGI(TAG, "Immagine decodificata: %dx%d", img.width, img.height);
+
+    // Ridimensiona a 320x320 (dimensione input YOLO) PER TEST
+    dl::image::img_t resized_img;
+    resized_img.width = 320;
+    resized_img.height = 320;
+    resized_img.pix_type = dl::image::DL_IMAGE_PIX_TYPE_RGB888;
+    resized_img.data = heap_caps_malloc(320 * 320 * 3, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+    
+    if (!resized_img.data) {
+        ESP_LOGE(TAG, "Errore allocazione memoria per resize");
+        heap_caps_free(img.data);
+        return false;
+    }
+    
+    dl::image::resize(img, resized_img, dl::image::DL_IMAGE_INTERPOLATE_BILINEAR, 0, nullptr);
+    ESP_LOGI(TAG, "Immagine ridimensionata: %dx%d", resized_img.width, resized_img.height);
+
+    // Debug: stampa alcuni valori prima della normalizzazione
+    uint8_t* uint8_data = (uint8_t*)resized_img.data;
+    ESP_LOGI(TAG, "Primi 10 valori prima normalizzazione: %d, %d, %d, %d, %d, %d, %d, %d, %d, %d", 
+             uint8_data[0], uint8_data[1], uint8_data[2], uint8_data[3], uint8_data[4], 
+             uint8_data[5], uint8_data[6], uint8_data[7], uint8_data[8], uint8_data[9]);
+
+    // Alloca memoria separata per i dati float normalizzati
+    size_t float_size = 320 * 320 * 3 * sizeof(float);
+    ESP_LOGI(TAG, "Tentativo allocazione: %d bytes", float_size);
+    
+    float* float_data = (float*)heap_caps_malloc(float_size, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+    if (!float_data) {
+        ESP_LOGE(TAG, "Errore allocazione PSRAM, provo memoria interna");
+        float_data = (float*)heap_caps_malloc(float_size, MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
+        if (!float_data) {
+            ESP_LOGE(TAG, "Errore anche con memoria interna");
+            heap_caps_free(img.data);
+            heap_caps_free(resized_img.data);
+            return false;
+        }
+    }
+
+    // Normalizza i valori da [0,255] a [0,1] in float
+    for (int i = 0; i < 320 * 320 * 3; i++) {
+        float_data[i] = uint8_data[i] / 255.0f;
+    }
+
+    // Debug: stampa alcuni valori dopo la normalizzazione
+    ESP_LOGI(TAG, "Primi 10 valori dopo normalizzazione: %.3f, %.3f, %.3f, %.3f, %.3f, %.3f, %.3f, %.3f, %.3f, %.3f", 
+             float_data[0], float_data[1], float_data[2], float_data[3], float_data[4], 
+             float_data[5], float_data[6], float_data[7], float_data[8], float_data[9]);
+
+    ESP_LOGI(TAG, "Immagine preprocessata per inferenza");
+
+    // Esegui inferenza
+    ESP_LOGI(TAG, "Avvio inferenza YOLO...");
+    dl::Model* model = static_cast<dl::Model*>(inf->yolo_model);
+
+        // === DEBUG MODELLO ===
+        ESP_LOGI(TAG, "=== INFO MODELLO ===");
+        model->print();
+        
+        ESP_LOGI(TAG, "=== INFO MEMORIA ===");
+        model->profile_memory();
+        
+        ESP_LOGI(TAG, "=== INFO MODULI ===");
+        auto module_info = model->get_module_info();
+        model->print_module_info(module_info);
+        
+            ESP_LOGI(TAG, "=== INFO INPUT/OUTPUT ===");
+    auto inputs = model->get_inputs();
+    for (auto& input : inputs) {
+        auto shape = input.second->get_shape();
+        ESP_LOGI(TAG, "Input: %s, shape: [%d, %d, %d, %d]", 
+                 input.first.c_str(), 
+                 shape[0], shape[1], shape[2], shape[3]);
+    }
+    
+    auto outputs = model->get_outputs();
+    for (auto& output : outputs) {
+        auto shape = output.second->get_shape();
+        ESP_LOGI(TAG, "Output: %s, shape: [%d, %d, %d, %d]", 
+                 output.first.c_str(), 
+                 shape[0], shape[1], shape[2], shape[3]);
+    }
+    
+    // Debug: stampa informazioni sul modello
+    ESP_LOGI(TAG, "Puntatore modello: %p", model);
+    ESP_LOGI(TAG, "Puntatore dati float: %p", float_data);
+    
+    model->run((dl::TensorBase*)float_data); 
+
+    ESP_LOGI(TAG, "Inferenza completata!");    
+    
+    // Libera memoria
+    heap_caps_free(img.data);
+    heap_caps_free(resized_img.data);
+    heap_caps_free(float_data);
+
+    ESP_LOGI(TAG, "Inferenza YOLO completata!");
+
     return true;
 }
-//funzione per inizializzare il modello Yolo in tflite
-/*
-bool inference_yolo_init(void) {
-    ESP_LOGI(TAG, "Inizializzazione sistema di inferenza Yolo...");
-
-    printf("PSRAM libera prima di inizializzare il modello: %d bytes\n", heap_caps_get_free_size(MALLOC_CAP_SPIRAM));
-    
-    // Calcola dimensione modello
-    size_t model_size = yolo11n_float32_tflite_end - yolo11n_float32_tflite_start;
-    ESP_LOGI(TAG, "Dimensione modello: %zu bytes (%.1f MB)", model_size, (float)model_size / 1024 / 1024);
-    
-    // Carica modello
-    model = tflite::GetModel(yolo11n_float32_tflite_start);
-    if (!model) {
-        ESP_LOGE(TAG, "Impossibile caricare modello");
-        return false;
-    }
-    
-    // Verifica versione
-    if (model->version() != TFLITE_SCHEMA_VERSION) {
-        ESP_LOGE(TAG, "Modello incompatibile");
-        return false;
-    }
-    
-    // Configura resolver con tutte le operazioni necessarie per il modello YOLO
-    static tflite::MicroMutableOpResolver<20> resolver;
-    ESP_LOGI(TAG, "Configurando resolver con 20 operazioni...");
-    
-    resolver.AddAdd();
-    ESP_LOGI(TAG, "Aggiunta operazione: ADD");
-    resolver.AddConcatenation();
-    ESP_LOGI(TAG, "Aggiunta operazione: CONCATENATION");
-    resolver.AddConv2D();
-    ESP_LOGI(TAG, "Aggiunta operazione: CONV_2D");
-    resolver.AddDepthwiseConv2D();
-    ESP_LOGI(TAG, "Aggiunta operazione: DEPTHWISE_CONV_2D");
-    resolver.AddDequantize();
-    ESP_LOGI(TAG, "Aggiunta operazione: DEQUANTIZE");
-    resolver.AddFullyConnected();
-    ESP_LOGI(TAG, "Aggiunta operazione: FULLY_CONNECTED");
-    resolver.AddLogistic();
-    ESP_LOGI(TAG, "Aggiunta operazione: LOGISTIC");
-    resolver.AddMaxPool2D();
-    ESP_LOGI(TAG, "Aggiunta operazione: MAX_POOL_2D");
-    resolver.AddMul();
-    ESP_LOGI(TAG, "Aggiunta operazione: MUL");
-    resolver.AddPack();
-    ESP_LOGI(TAG, "Aggiunta operazione: PACK");
-    resolver.AddPad();
-    ESP_LOGI(TAG, "Aggiunta operazione: PAD");
-    resolver.AddQuantize();
-    ESP_LOGI(TAG, "Aggiunta operazione: QUANTIZE");
-    resolver.AddReshape();
-    ESP_LOGI(TAG, "Aggiunta operazione: RESHAPE");
-    resolver.AddResizeNearestNeighbor();
-    ESP_LOGI(TAG, "Aggiunta operazione: RESIZE_NEAREST_NEIGHBOR");
-    resolver.AddSoftmax();
-    ESP_LOGI(TAG, "Aggiunta operazione: SOFTMAX");
-    resolver.AddSplit();
-    ESP_LOGI(TAG, "Aggiunta operazione: SPLIT");
-    resolver.AddStridedSlice();
-    ESP_LOGI(TAG, "Aggiunta operazione: STRIDED_SLICE");
-    resolver.AddSub();
-    ESP_LOGI(TAG, "Aggiunta operazione: SUB");
-    resolver.AddTranspose();
-    ESP_LOGI(TAG, "Aggiunta operazione: TRANSPOSE");
-    
-    ESP_LOGI(TAG, "Resolver configurato con successo!");
-    
-
-    
-    // Alloca tensor arena in PSRAM
-    constexpr int arena_size = 7 * 1024 * 1024;  // 7MB ( della PSRAM)
-    tensor_arena = (uint8_t*)heap_caps_malloc(arena_size, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
-    if (!tensor_arena) {
-        ESP_LOGE(TAG, "Impossibile allocare tensor arena");
-        return false;
-    }
-    
-    ESP_LOGI(TAG, "Tensor arena allocata: %d bytes (%.1f MB)", arena_size, (float)arena_size / 1024 / 1024);
-    
-    ESP_LOGI(TAG, "Creazione interprete...");
-    // Crea interprete
-    interpreter = new tflite::MicroInterpreter(model, resolver, tensor_arena, arena_size);
-    if (!interpreter) {
-        ESP_LOGE(TAG, "Impossibile creare interprete");
-        heap_caps_free(tensor_arena);
-        tensor_arena = nullptr;
-        return false;
-    }
-    ESP_LOGI(TAG, "Interprete creato con successo!");
-    
-    ESP_LOGI(TAG, "Allocazione tensori...");
-    
-    // Debug: stampa informazioni sui tensori di input/output
-    size_t input_tensor_count = interpreter->inputs_size();
-    size_t output_tensor_count = interpreter->outputs_size();
-    ESP_LOGI(TAG, "Numero tensori input: %zu", input_tensor_count);
-    ESP_LOGI(TAG, "Numero tensori output: %zu", output_tensor_count);
-    
-    // Alloca tensori
-    ESP_LOGI(TAG, "Chiamata AllocateTensors()...");
-    TfLiteStatus allocate_status = interpreter->AllocateTensors();
-    ESP_LOGI(TAG, "AllocateTensors() completata con status: %d", allocate_status);
-    ESP_LOGI(TAG, "Tensor Arena effettivamente usata: %d bytes", interpreter->arena_used_bytes());
-    
-    if (allocate_status != kTfLiteOk) {
-        ESP_LOGE(TAG, "Allocazione tensor fallita con status: %d", allocate_status);
-        delete interpreter;
-        interpreter = nullptr;
-        heap_caps_free(tensor_arena);
-        tensor_arena = nullptr;
-        return false;
-    }
-    ESP_LOGI(TAG, "Tensori allocati con successo!");
-    
-    ESP_LOGI(TAG, "Inizializzazione YOLO completata!");
-    return true;
-}
-*/
-
 bool inference_face_detector_init(inference_t *inf) {
     if (!inf || !inf->initialized) {
         ESP_LOGE(TAG, "Sistema di inferenza non inizializzato");
@@ -443,6 +451,17 @@ bool inference_init_legacy(void) {
     inference_t *inf = get_inference_instance();
     return inference_init(inf) && inference_face_detector_init(inf);
 }
+
+bool inference_yolo_init_legacy(void) {
+    inference_t *inf = get_inference_instance();
+    return inference_init(inf) && inference_yolo_init(inf);
+}
+
+bool inference_process_image_yolo(const uint8_t* jpeg_data, size_t jpeg_size, inference_result_t* result) {
+    inference_t *inf = get_inference_instance();
+    return inference_yolo_detection(inf, jpeg_data, jpeg_size, result);
+}
+
 
 bool inference_process_image(const uint8_t* jpeg_data, size_t jpeg_size, inference_result_t* result) {
     inference_t *inf = get_inference_instance();

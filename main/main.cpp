@@ -154,7 +154,7 @@ static void cli_task(void *pvParameters){
     printf("+: aumenta risoluzione fotocamera\n");
     printf("-: riduci risoluzione fotocamera\n");
     printf("w: Avvia il webserver per web UI\n");
-    printf("s: Scatta foto ed esegui inferenza face detection\n");
+    printf("s: Scatta foto ed esegui inferenza\n");
     printf("f: Inizializza il modello di inferenza Yolo esterno\n");
     printf("e: Esci\n");
     printf("===========================\n");
@@ -179,7 +179,7 @@ static void cli_task(void *pvParameters){
             start_webserver();
         }
         else if (command == 's') {
-            printf("Scatto foto ed eseguo inferenza face detection...\n");
+            printf("Scatto foto ed eseguo inferenza...\n");
             camera_capture_and_inference(&g_camera, NULL);
         }
         else if (command == 'i'){
@@ -194,11 +194,8 @@ static void cli_task(void *pvParameters){
 
         }
         else if (command == 'f') {  
-            //printf("Inizializza solo il il modello di inferenza di face detection...\n");
-            //inference_init_legacy();
-
             //inizializza modello Yolov11n
-            inference_yolo_init();
+            inference_yolo_init_legacy();
         }
         else if (command == 'd') {
             printf("Deinizializza la fotocamera e il sistema di inferenza...\n");
@@ -262,7 +259,7 @@ static void cli_task(void *pvParameters){
             printf("+: aumenta risoluzione fotocamera\n");
             printf("-: riduci risoluzione fotocamera\n");
             printf("w: Avvia il webserver per web UI\n");
-            printf("s: Scatta foto ed esegui inferenza face detection\n");
+            printf("s: Scatta foto ed esegui inferenza\n");
             printf("f: Inizializza il modello di inferenza Yolo esterno\n");
             printf("e: Esci\n");
             printf("===========================\n");
@@ -302,7 +299,9 @@ static void ai_task(void *pvParameters)
         if (xQueueReceive(ai_task_queue, &message, portMAX_DELAY) == pdTRUE) {
 
             inference_result_t result;
-            if (inference_process_image(message.image_buffer, message.image_size, &result)) {
+            //Inference face detection o Yolo
+            //if (inference_process_image(message.image_buffer, message.image_size, &result)) {
+            if (inference_process_image_yolo(message.image_buffer, message.image_size, &result)) {
                 ESP_LOGI(TAG, "AI Task: Inferenza completata con successo");
             } else {
                 ESP_LOGE(TAG, "AI Task: Errore durante l'inferenza");
