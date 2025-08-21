@@ -83,8 +83,9 @@ bool inference_yolo_init(inference_t *inf) {
         return true;
     }
     ESP_LOGI(TAG, "Inizializzazione sistema di inferenza YOLO con ESP-DL...");
-
+    
     extern const uint8_t yolo11n[] asm("_binary_yolo11n_espdl_start");
+
 
     ESP_LOGI(TAG, "PSRAM libera prima di inizializzare il modello: %d bytes", heap_caps_get_free_size(MALLOC_CAP_SPIRAM));
 
@@ -184,6 +185,7 @@ bool inference_yolo_detection(inference_t *inf, const uint8_t* jpeg_data, size_t
     // Esegui inferenza
     ESP_LOGI(TAG, "Avvio inferenza YOLO...");
     dl::Model* model = static_cast<dl::Model*>(inf->yolo_model);
+    //ottieni informazioni generali del modello
         /*
         // === DEBUG MODELLO ===
         ESP_LOGI(TAG, "=== INFO MODELLO ===");
@@ -197,6 +199,7 @@ bool inference_yolo_detection(inference_t *inf, const uint8_t* jpeg_data, size_t
         model->print_module_info(module_info);
         */
     ESP_LOGI(TAG, "=== INFO INPUT/OUTPUT ===");
+    //ottieni informazioni sull'input del modello
     auto inputs = model->get_inputs();
     for (auto& input : inputs) {
         auto shape = input.second->get_shape();
@@ -205,6 +208,7 @@ bool inference_yolo_detection(inference_t *inf, const uint8_t* jpeg_data, size_t
                  shape[0], shape[1], shape[2], shape[3]);
     }
     
+    //ottieni informazioni sull'output del modello
     auto outputs = model->get_outputs();
     for (auto& output : outputs) {
         auto shape = output.second->get_shape();
@@ -212,8 +216,8 @@ bool inference_yolo_detection(inference_t *inf, const uint8_t* jpeg_data, size_t
                  output.first.c_str(), 
                  shape[0], shape[1], shape[2], shape[3]);
     }
-    
-    // Prova con il metodo corretto per passare input
+
+    //assegna i dati al tensore di input
     if (!inputs.empty()) {
         auto input_tensor = inputs.begin()->second;
         ESP_LOGI(TAG, "Input tensor: %s", inputs.begin()->first.c_str());
@@ -222,6 +226,17 @@ bool inference_yolo_detection(inference_t *inf, const uint8_t* jpeg_data, size_t
         std::vector<int> shape = {1, 320, 320, 3};  // batch, height, width, channels
         bool success = input_tensor->assign(shape, float_data, 0, dl::DATA_TYPE_FLOAT);
         
+        //esegui inferenza
+        if (success) {
+            ESP_LOGI(TAG, "Dati assegnati con successo al tensore");
+            model->run();
+            ESP_LOGI(TAG, "Inferenza completata!");
+        }
+    }
+
+
+    // Postprocessing manuale (risultati non corretti al momento)
+    /*
         if (success) {
             ESP_LOGI(TAG, "Dati assegnati con successo al tensore");
             // Esegui inferenza
@@ -393,15 +408,14 @@ bool inference_yolo_detection(inference_t *inf, const uint8_t* jpeg_data, size_t
     } else {
         ESP_LOGE(TAG, "Nessun input trovato nel modello");
     } 
-
-    ESP_LOGI(TAG, "Inferenza completata!");    
+    */
 
     // Dopo i nostri log manuali
     ESP_LOGI(TAG, "=== TESTING ESP-DL POSTPROCESSOR ===");
 
     // Parametri per il postprocessor
-    float score_threshold = 0.3f;
-    float nms_threshold = 0.5f;
+    float score_threshold = 0.65f;
+    float nms_threshold = 0.3f;
     int resize_scale_x = 320;  // Dimensione input
 
     // Crea le stages per YOLO11 (3 scale: 40x40, 20x20, 10x10)
