@@ -150,9 +150,6 @@ bool inference_yolo_detection(inference_t *inf, const uint8_t* jpeg_data, size_t
 
     // Debug: stampa alcuni valori prima della normalizzazione
     uint8_t* uint8_data = (uint8_t*)resized_img.data;
-    ESP_LOGI(TAG, "Primi 10 valori prima normalizzazione: %d, %d, %d, %d, %d, %d, %d, %d, %d, %d", 
-             uint8_data[0], uint8_data[1], uint8_data[2], uint8_data[3], uint8_data[4], 
-             uint8_data[5], uint8_data[6], uint8_data[7], uint8_data[8], uint8_data[9]);
 
     // Alloca memoria separata per i dati float normalizzati
     size_t float_size = 320 * 320 * 3 * sizeof(float);
@@ -175,47 +172,10 @@ bool inference_yolo_detection(inference_t *inf, const uint8_t* jpeg_data, size_t
         float_data[i] = uint8_data[i] / 255.0f;
     }
 
-    // Debug: stampa alcuni valori dopo la normalizzazione
-    ESP_LOGI(TAG, "Primi 10 valori dopo normalizzazione: %.3f, %.3f, %.3f, %.3f, %.3f, %.3f, %.3f, %.3f, %.3f, %.3f", 
-             float_data[0], float_data[1], float_data[2], float_data[3], float_data[4], 
-             float_data[5], float_data[6], float_data[7], float_data[8], float_data[9]);
-
     ESP_LOGI(TAG, "Immagine preprocessata per inferenza");
 
-    // Esegui inferenza
     ESP_LOGI(TAG, "Avvio inferenza YOLO...");
     dl::Model* model = static_cast<dl::Model*>(inf->yolo_model);
-    //ottieni informazioni generali del modello
-        /*
-        // === DEBUG MODELLO ===
-        ESP_LOGI(TAG, "=== INFO MODELLO ===");
-        model->print();
-        
-        ESP_LOGI(TAG, "=== INFO MEMORIA ===");
-        model->profile_memory();
-        
-        ESP_LOGI(TAG, "=== INFO MODULI ===");
-        auto module_info = model->get_module_info();
-        model->print_module_info(module_info);
-        */
-    ESP_LOGI(TAG, "=== INFO INPUT/OUTPUT ===");
-    //ottieni informazioni sull'input del modello
-    auto inputs = model->get_inputs();
-    for (auto& input : inputs) {
-        auto shape = input.second->get_shape();
-        ESP_LOGI(TAG, "Input: %s, shape: [%d, %d, %d, %d]", 
-                 input.first.c_str(), 
-                 shape[0], shape[1], shape[2], shape[3]);
-    }
-    
-    //ottieni informazioni sull'output del modello
-    auto outputs = model->get_outputs();
-    for (auto& output : outputs) {
-        auto shape = output.second->get_shape();
-        ESP_LOGI(TAG, "Output: %s, shape: [%d, %d, %d, %d]", 
-                 output.first.c_str(), 
-                 shape[0], shape[1], shape[2], shape[3]);
-    }
 
     //assegna i dati al tensore di input
     if (!inputs.empty()) {
@@ -414,8 +374,8 @@ bool inference_yolo_detection(inference_t *inf, const uint8_t* jpeg_data, size_t
     ESP_LOGI(TAG, "=== TESTING ESP-DL POSTPROCESSOR ===");
 
     // Parametri per il postprocessor
-    float score_threshold = 0.65f;
-    float nms_threshold = 0.3f;
+    float score_threshold = 0.2f;
+    float nms_threshold = 0.9f;
     int resize_scale_x = 320;  // Dimensione input
 
     // Crea le stages per YOLO11 (3 scale: 40x40, 20x20, 10x10)
