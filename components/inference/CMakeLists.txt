@@ -9,7 +9,7 @@ include(${cmake_dir}/utilities.cmake)
 set(embed_files yolo11n.espdl)  # Cambiato da models/yolo11n.espdl
 
 idf_component_register(
-    SRCS "inference.cpp"
+    SRCS "inference.cpp" "yolo11n_detect.cpp"
     INCLUDE_DIRS "include"
     REQUIRES esp-dl esp32-camera esp_new_jpeg human_face_detect monitor esp-tflite-micro
 )

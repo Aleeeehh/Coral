@@ -10,6 +10,7 @@
 #include "tensorflow/lite/micro/micro_mutable_op_resolver.h"
 #include "monitor.h"
 #include <string.h>
+#include "yolo11n_detect.h"
 
 // ESP-DL includes
 //#include "dl_model.hpp"
@@ -106,7 +107,6 @@ bool inference_yolo_init(inference_t *inf) {
 
 }
 
-//inferenza con modello Yolo
 bool inference_yolo_detection(inference_t *inf, const uint8_t* jpeg_data, size_t jpeg_size, inference_result_t* result) {
     
     if (!inf || !inf->initialized || !inf->yolo_model) {
@@ -118,7 +118,7 @@ bool inference_yolo_detection(inference_t *inf, const uint8_t* jpeg_data, size_t
     ESP_LOGI(TAG, "PSRAM libera: %d bytes", heap_caps_get_free_size(MALLOC_CAP_SPIRAM));
     ESP_LOGI(TAG, "Memoria interna libera: %d bytes", heap_caps_get_free_size(MALLOC_CAP_INTERNAL));
 
-    // Decodifica JPEG in RGB
+    // 1. DECODIFICA JPEG (come nell'esempio Espressif)
     dl::image::jpeg_img_t jpeg_img = {
         .data = (void*)jpeg_data,
         .data_len = jpeg_size
@@ -132,284 +132,30 @@ bool inference_yolo_detection(inference_t *inf, const uint8_t* jpeg_data, size_t
     
     ESP_LOGI(TAG, "Immagine decodificata: %dx%d", img.width, img.height);
 
-    // Ridimensiona a 320x320 (dimensione input YOLO) PER TEST
-    dl::image::img_t resized_img;
-    resized_img.width = 320;
-    resized_img.height = 320;
-    resized_img.pix_type = dl::image::DL_IMAGE_PIX_TYPE_RGB888;
-    resized_img.data = heap_caps_malloc(320 * 320 * 3, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+    // 2. USA LA NUOVA CLASSE (come nell'esempio Espressif)
+    YOLO11nDetect *detect = new YOLO11nDetect(inf->yolo_model);
+    auto &detect_results = detect->run(img);
     
-    if (!resized_img.data) {
-        ESP_LOGE(TAG, "Errore allocazione memoria per resize");
-        heap_caps_free(img.data);
-        return false;
+    // 3. PROCESSA RISULTATI (come nell'esempio Espressif)
+    ESP_LOGI(TAG, "Risultati YOLO11n: %d detection", detect_results.size());
+    for (const auto &res : detect_results) {
+        ESP_LOGI(TAG, "[category: %d, score: %f, x1: %d, y1: %d, x2: %d, y2: %d]",
+                 res.category,
+                 res.score,
+                 res.box[0],
+                 res.box[1],
+                 res.box[2],
+                 res.box[3]);
     }
     
-    dl::image::resize(img, resized_img, dl::image::DL_IMAGE_INTERPOLATE_BILINEAR, 0, nullptr);
-    ESP_LOGI(TAG, "Immagine ridimensionata: %dx%d", resized_img.width, resized_img.height);
-
-    // Debug: stampa alcuni valori prima della normalizzazione
-    uint8_t* uint8_data = (uint8_t*)resized_img.data;
-
-    // Alloca memoria separata per i dati float normalizzati
-    size_t float_size = 320 * 320 * 3 * sizeof(float);
-    ESP_LOGI(TAG, "Tentativo allocazione: %d bytes", float_size);
-    
-    float* float_data = (float*)heap_caps_malloc(float_size, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
-    if (!float_data) {
-        ESP_LOGE(TAG, "Errore allocazione PSRAM, provo memoria interna");
-        float_data = (float*)heap_caps_malloc(float_size, MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
-        if (!float_data) {
-            ESP_LOGE(TAG, "Errore anche con memoria interna");
-            heap_caps_free(img.data);
-            heap_caps_free(resized_img.data);
-            return false;
-        }
-    }
-
-    // Normalizza i valori da [0,255] a [0,1] in float
-    for (int i = 0; i < 320 * 320 * 3; i++) {
-        float_data[i] = uint8_data[i] / 255.0f;
-    }
-
-    ESP_LOGI(TAG, "Immagine preprocessata per inferenza");
-
-    ESP_LOGI(TAG, "Avvio inferenza YOLO...");
-    dl::Model* model = static_cast<dl::Model*>(inf->yolo_model);
-
-    //assegna i dati al tensore di input
-    if (!inputs.empty()) {
-        auto input_tensor = inputs.begin()->second;
-        ESP_LOGI(TAG, "Input tensor: %s", inputs.begin()->first.c_str());
-        
-        // Assegna i dati usando l'API corretta di ESP-DL
-        std::vector<int> shape = {1, 320, 320, 3};  // batch, height, width, channels
-        bool success = input_tensor->assign(shape, float_data, 0, dl::DATA_TYPE_FLOAT);
-        
-        //esegui inferenza
-        if (success) {
-            ESP_LOGI(TAG, "Dati assegnati con successo al tensore");
-            model->run();
-            ESP_LOGI(TAG, "Inferenza completata!");
-        }
-    }
-
-
-    // Postprocessing manuale (risultati non corretti al momento)
-    /*
-        if (success) {
-            ESP_LOGI(TAG, "Dati assegnati con successo al tensore");
-            // Esegui inferenza
-            model->run();
-            
-            // Post-processing: estrai i risultati
-            ESP_LOGI(TAG, "=== POST-PROCESSING ===");
-            auto outputs = model->get_outputs();
-            
-            for (auto& output : outputs) { 
-                auto shape = output.second->get_shape();
-                ESP_LOGI(TAG, "Output: %s, shape: [%d, %d, %d, %d]", 
-                         output.first.c_str(), 
-                         shape[0], shape[1], shape[2], shape[3]);
-                
-                // Estrai alcuni valori di esempio
-                if (output.first.find("score") != std::string::npos) {
-                    ESP_LOGI(TAG, "Analizzando score tensor: %s", output.first.c_str());
-                    ESP_LOGI(TAG, "Tipo dati tensore: %s", output.second->get_dtype_string());
-                    
-                    // Parametri di dequantizzazione (da yolo11n.info)
-                    // Gli output hanno exponent: -2, quindi scale = 2^(-2) = 0.25
-                    float scale = 0.25f;        // Scale corretto dal file .info
-                    int zero_point = 0;         // Zero point per quantizzazione simmetrica INT8
-                    
-                    if (output.second->get_dtype() == dl::DATA_TYPE_INT8) {
-                        int8_t* data = output.second->get_element_ptr<int8_t>();
-                        
-                        // Dequantizza e cerca confidence massima
-                        float max_confidence = -999999.0f;
-                        int max_idx = -1;
-                        ESP_LOGI(TAG, "Dequantizzando e cercando confidence massima...");
-                        
-                        for (int i = 0; i < output.second->get_size(); i++) {
-                            // Dequantizza: (int8 - zero_point) * scale
-                            float dequantized = (data[i] - zero_point) * scale;
-                            
-                            if (dequantized > max_confidence) {
-                                max_confidence = dequantized;
-                                max_idx = i;
-                            }
-                        }
-                        
-                        ESP_LOGI(TAG, "Confidence massima dequantizzata in %s: %.6f (indice %d)", 
-                                 output.first.c_str(), max_confidence, max_idx);
-                        
-                        // Cerca specificamente la classe "person" (indice 0)
-                        float person_confidence = 0.0f;
-                        int person_x = -1, person_y = -1;
-                        
-                        // Per ogni posizione nel tensore
-                        auto shape = output.second->get_shape();
-                        int height = shape[1];  // 40, 20, o 10
-                        int width = shape[2];   // 40, 20, o 10
-                        
-                        for (int y = 0; y < height; y++) {
-                            for (int x = 0; x < width; x++) {
-                                int base_idx = (y * width + x) * 80;  // 80 classi per posizione
-                                float dequantized = (data[base_idx] - zero_point) * scale;  // Classe 0 (person)
-                                
-                                if (dequantized > person_confidence) {
-                                    person_confidence = dequantized;
-                                    person_x = x;
-                                    person_y = y;
-                                }
-                            }
-                        }
-                        
-                        ESP_LOGI(TAG, "Classe 'person' in %s: confidence=%.6f, pos=(%d,%d)", 
-                                 output.first.c_str(), person_confidence, person_x, person_y);
-                        
-                        // Se troviamo una persona con confidence alta, estrai bounding box
-                        if (person_confidence > 0.3f) {
-                            ESP_LOGI(TAG, "PERSONA RILEVATA in %s!", output.first.c_str());
-                            
-                            // Cerca il tensore box corrispondente
-                            std::string box_name = output.first;
-                            box_name.replace(box_name.find("score"), 5, "box");
-                            
-                            auto box_output = outputs.find(box_name);
-                            if (box_output != outputs.end()) {
-                                ESP_LOGI(TAG, "Trovato tensore box corrispondente: %s", box_name.c_str());
-                                
-                                // Estrai bounding box dalla posizione (person_x, person_y)
-                                auto box_shape = box_output->second->get_shape();
-                                int box_height = box_shape[1];
-                                int box_width = box_shape[2];
-                                
-                                if (person_x < box_width && person_y < box_height) {
-                                    int8_t* box_data = box_output->second->get_element_ptr<int8_t>();
-                                    int box_base_idx = (person_y * box_width + person_x) * 64;  // 64 valori per box
-                                    
-                                    // Debug: stampa i primi valori del box
-                                    ESP_LOGI(TAG, "Primi 10 valori del box: %d, %d, %d, %d, %d, %d, %d, %d, %d, %d",
-                                             box_data[box_base_idx + 0], box_data[box_base_idx + 1], 
-                                             box_data[box_base_idx + 2], box_data[box_base_idx + 3],
-                                             box_data[box_base_idx + 4], box_data[box_base_idx + 5],
-                                             box_data[box_base_idx + 6], box_data[box_base_idx + 7],
-                                             box_data[box_base_idx + 8], box_data[box_base_idx + 9]);
-                                    
-                                    // Prova scale diversi per le bounding boxes
-                                    // Le bounding boxes potrebbero avere scale diverso dagli score
-                                    float box_scale = 0.25f;  // Prova prima con lo stesso scale
-                                    
-                                    // Dequantizza i primi 4 valori [x, y, w, h]
-                                    float box_x = (box_data[box_base_idx + 0] - 0) * box_scale;
-                                    float box_y = (box_data[box_base_idx + 1] - 0) * box_scale;
-                                    float box_w = (box_data[box_base_idx + 2] - 0) * box_scale;
-                                    float box_h = (box_data[box_base_idx + 3] - 0) * box_scale;
-                                    
-                                    ESP_LOGI(TAG, "Bounding Box (normalizzato): x=%.3f, y=%.3f, w=%.3f, h=%.3f", 
-                                             box_x, box_y, box_w, box_h);
-                                    
-                                    // Verifica che i valori siano nel range [0,1]
-                                    if (box_x >= 0.0f && box_x <= 1.0f && 
-                                        box_y >= 0.0f && box_y <= 1.0f &&
-                                        box_w >= 0.0f && box_w <= 1.0f &&
-                                        box_h >= 0.0f && box_h <= 1.0f) {
-                                        
-                                        // Converti in coordinate pixel (320x320)
-                                        int pixel_x = (int)(box_x * 320);
-                                        int pixel_y = (int)(box_y * 320);
-                                        int pixel_w = (int)(box_w * 320);
-                                        int pixel_h = (int)(box_h * 320);
-                                        
-                                        ESP_LOGI(TAG, "Bounding Box (pixel): x=%d, y=%d, w=%d, h=%d", 
-                                                 pixel_x, pixel_y, pixel_w, pixel_h);
-                                        
-                                        // Verifica che sia dentro l'immagine
-                                        if (pixel_x >= 0 && pixel_x < 320 && 
-                                            pixel_y >= 0 && pixel_y < 320 &&
-                                            pixel_w > 0 && pixel_w <= 320 &&
-                                            pixel_h > 0 && pixel_h <= 320) {
-                                            ESP_LOGI(TAG, "Bounding Box VALIDA!");
-                                        } else {
-                                            ESP_LOGW(TAG, "Bounding Box fuori range!");
-                                        }
-                                    } else {
-                                        ESP_LOGW(TAG, "Bounding Box valori normalizzati fuori range [0,1]!");
-                                        
-                                        // Prova con scale diverso
-                                        box_scale = 0.1f;  // Prova scale più piccolo
-                                        box_x = (box_data[box_base_idx + 0] - 0) * box_scale;
-                                        box_y = (box_data[box_base_idx + 1] - 0) * box_scale;
-                                        box_w = (box_data[box_base_idx + 2] - 0) * box_scale;
-                                        box_h = (box_data[box_base_idx + 3] - 0) * box_scale;
-                                        
-                                        ESP_LOGI(TAG, "Bounding Box (scale=0.1): x=%.3f, y=%.3f, w=%.3f, h=%.3f", 
-                                                 box_x, box_y, box_w, box_h);
-                                    }
-                                }
-                            }
-                        }
-                        ESP_LOGI(TAG, "Confidence massima per classe 'person' in %s: %.6f", 
-                                 output.first.c_str(), person_confidence);
-                        
-                    } else {
-                        float* data = output.second->get_element_ptr<float>();
-                        ESP_LOGI(TAG, "Primi 10 valori FLOAT di %s:", output.first.c_str());
-                        for (int i = 0; i < 10 && i < output.second->get_size(); i++) {
-                            ESP_LOGI(TAG, "  [%d]: %.6f", i, data[i]);
-                        }
-                    }
-                }
-            }
-        } else {
-            ESP_LOGE(TAG, "Errore nell'assegnazione dei dati al tensore");
-        }
-    } else {
-        ESP_LOGE(TAG, "Nessun input trovato nel modello");
-    } 
-    */
-
-    // Dopo i nostri log manuali
-    ESP_LOGI(TAG, "=== TESTING ESP-DL POSTPROCESSOR ===");
-
-    // Parametri per il postprocessor
-    float score_threshold = 0.2f;
-    float nms_threshold = 0.9f;
-    int resize_scale_x = 320;  // Dimensione input
-
-    // Crea le stages per YOLO11 (3 scale: 40x40, 20x20, 10x10)
-    std::vector<dl::detect::anchor_point_stage_t> stages = {
-        {8, 8, 0, 0},   // score0/box0: 40x40, stride 8
-        {16, 16, 0, 0}, // score1/box1: 20x20, stride 16  
-        {32, 32, 0, 0}  // score2/box2: 10x10, stride 32
-    };
-
-    // Crea il postprocessor
-    dl::detect::yolo11PostProcessor postprocessor(model, score_threshold, nms_threshold, resize_scale_x, stages);
-
-    // Esegui postprocessing
-    postprocessor.postprocess();
-
-    // Ottieni i risultati (metodo corretto)
-    auto results = postprocessor.get_result(320, 320);  // width=320, height=320
-
-    // Stampa i risultati
-    ESP_LOGI(TAG, "Risultati ESP-DL postprocessor: %d detection", results.size());
-    for (const auto& result : results) {
-        ESP_LOGI(TAG, "Risultato: score=%.6f, box: [%d,%d,%d,%d]", 
-                 result.score, result.box[0], result.box[1], result.box[2], result.box[3]);
-    }
-
-    // Libera memoria
+    // 4. LIBERA MEMORIA (come nell'esempio Espressif)
+    delete detect;
     heap_caps_free(img.data);
-    heap_caps_free(resized_img.data);
-    heap_caps_free(float_data);
 
     ESP_LOGI(TAG, "Inferenza YOLO completata!");
-
     return true;
 }
+
 
 bool inference_face_detector_init(inference_t *inf) {
     
