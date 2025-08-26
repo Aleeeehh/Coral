@@ -8,7 +8,7 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/queue.h"
 #include "dl_model_base.hpp"
-
+#include "yolo11n_detect.h"
 
 #define MAX_FACES 5 //numero massimo di facce rilevabili in una foto
 #define MAX_YOLO_DETECTIONS 10 //numero massimo di detections YOLO
@@ -129,13 +129,19 @@ void inference_deinit(inference_t *inf);
 void inference_deinit_legacy(void);
 
 /**
- * @brief Inizializza il sistema di inferenza (versione legacy)
+ * @brief Deinizializza il modello YOLO
+ * @param inf Puntatore alla struttura inference
+ */
+void inference_yolo_deinit(inference_t *inf);
+
+/**
+ * @brief Inizializza e istanzia i modelli Face Detection e YOLO
  * @return true se l'inizializzazione è riuscita, false altrimenti
  */
 bool inference_init_legacy(void);
 
 /**
- * @brief Inizializza il sistema di inferenza (versione Yolo)
+ * @brief Inizializza e istanzia il sistema di inferenza (versione Yolo)
  * @return true se l'inizializzazione è riuscita, false altrimenti
  */
 bool inference_yolo_init(inference_t *inf);

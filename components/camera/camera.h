@@ -24,6 +24,7 @@ typedef struct {
 
 // Struttura per i messaggi tra CLI e AI task
 typedef struct {
+    int inference_type;
     uint8_t *image_buffer;
     size_t image_size;
     uint32_t timestamp;
@@ -112,10 +113,11 @@ const camera_resolution_info_t* camera_get_resolution_info(int index);
 /**
  * @brief Scatta una foto ed esegue l'inferenza di face detection
  * @param camera Puntatore alla struttura camera
- * @param result Puntatore alla struttura risultato (può essere NULL se non serve il risultato)
+ * @param result Puntatore alla struttura risultato (all'inizio è NULL, poi viene riempita per riferimento in seguito)
+ * @param inference_type Tipo di inferenza da eseguire (0: face detection, 1: YOLO detection)
  * @return ESP_OK se successo, errore altrimenti
  */
-esp_err_t camera_capture_and_inference(camera_t *camera, inference_result_t *result);
+esp_err_t camera_capture_and_inference(camera_t *camera, inference_result_t *result, int inference_type);
 
 /**
  * @brief Inizializza la queue per la comunicazione con la AI task

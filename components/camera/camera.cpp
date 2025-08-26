@@ -331,7 +331,7 @@ const camera_resolution_info_t* camera_get_resolution_info(int index)
     return NULL;
 }
 
-esp_err_t camera_capture_and_inference(camera_t *camera, inference_result_t *result)
+esp_err_t camera_capture_and_inference(camera_t *camera, inference_result_t *result, int inference_type)
 {
     if (!camera || !camera->initialized) {
         ESP_LOGE(TAG, "Camera non inizializzata");
@@ -376,6 +376,7 @@ esp_err_t camera_capture_and_inference(camera_t *camera, inference_result_t *res
 
     // Prepara messaggio per AI task
     ai_task_message_t message = {
+        .inference_type = inference_type,
         .image_buffer = frame_copy,
         .image_size = photo_size,
         .timestamp = (uint32_t)(esp_timer_get_time() / 1000000)

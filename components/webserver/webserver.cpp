@@ -276,7 +276,7 @@ static esp_err_t yolo_inference_post_handler(httpd_req_t *req)
     
     // Usa lo stesso flusso del CLI: camera_capture_and_inference
     inference_result_t result;
-    esp_err_t ret = camera_capture_and_inference(&ws->camera, &result);
+    esp_err_t ret = camera_capture_and_inference(&ws->camera, &result, 1);
     if (ret != ESP_OK) {
         ESP_LOGE(TAG, "Errore durante camera_capture_and_inference");
         httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Errore acquisizione foto");

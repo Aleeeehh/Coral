@@ -114,9 +114,8 @@ bool inference_yolo_detection(inference_t *inf, const uint8_t* jpeg_data, size_t
         return false;
     }
     
-    // Debug memoria
-    ESP_LOGI(TAG, "PSRAM libera: %d bytes", heap_caps_get_free_size(MALLOC_CAP_SPIRAM));
-    ESP_LOGI(TAG, "Memoria interna libera: %d bytes", heap_caps_get_free_size(MALLOC_CAP_INTERNAL));
+    start_time_full_inference = esp_timer_get_time() / 1000;  //inizia a contare tempo inferenza totale
+    start_time_preprocessing = esp_timer_get_time() / 1000;  //inizia a contare tempo preprocessing
 
     // 1. DECODIFICA JPEG (come nell'esempio Espressif)
     dl::image::jpeg_img_t jpeg_img = {
@@ -132,14 +131,26 @@ bool inference_yolo_detection(inference_t *inf, const uint8_t* jpeg_data, size_t
     
     ESP_LOGI(TAG, "Immagine decodificata: %dx%d", img.width, img.height);
 
+    end_time_preprocessing = esp_timer_get_time() / 1000; //smetti di contare tempo preprocessing
+
     // 2. USA LA NUOVA CLASSE (come nell'esempio Espressif)
     YOLO11nDetect *detect = new YOLO11nDetect(inf->yolo_model);
+
+    start_time_processing = esp_timer_get_time() / 1000;  //inizia a contare tempo inferenza 
     auto &detect_results = detect->run(img);
+    end_time_processing = esp_timer_get_time() / 1000; //smetti di contare tempo inferenza 
+
+    end_time_full_inference = esp_timer_get_time() / 1000; //smetti di contare tempo inferenza totale
+
     
     // 3. PROCESSA RISULTATI (come nell'esempio Espressif)
-    ESP_LOGI(TAG, "Risultati YOLO11n: %d detection", detect_results.size());
+    printf("=== RISULTATI INFERENZA YOLO11n ===\n");
+    printf("Numero di detection effettuate: %d\n", detect_results.size());
+    printf("Tempo preprocessing: %lu ms\n", end_time_preprocessing - start_time_preprocessing);
+    printf("Tempo processing inferenza: %lu ms\n", end_time_processing - start_time_processing);
+    printf("Tempo inferenza totale: %lu ms\n", end_time_full_inference - start_time_full_inference);
     for (const auto &res : detect_results) {
-        ESP_LOGI(TAG, "[category: %d, score: %f, x1: %d, y1: %d, x2: %d, y2: %d]",
+        printf("Categoria: %d, Confidenza: %f, Bounding Box: [%d, %d, %d, %d]\n",
                  res.category,
                  res.score,
                  res.box[0],
@@ -147,6 +158,8 @@ bool inference_yolo_detection(inference_t *inf, const uint8_t* jpeg_data, size_t
                  res.box[2],
                  res.box[3]);
     }
+    printf("===========================\n");
+
     
     // 4. LIBERA MEMORIA (come nell'esempio Espressif)
     delete detect;
@@ -170,23 +183,6 @@ bool inference_face_detector_init(inference_t *inf) {
     }
     
     ESP_LOGI(TAG, "Inizializzazione face detector HumanFaceDetect...");
-
-    // Stampa task corrente
-    TaskHandle_t current_task = xTaskGetCurrentTaskHandle();
-    const char* task_name = pcTaskGetName(current_task);
-    printf("Task corrente: %s\n", task_name);
-    printf("Task corrente: %s\n", task_name);
-    printf("Task corrente: %s\n", task_name);
-    printf("Task corrente: %s\n", task_name);
-    printf("Task corrente: %s\n", task_name);
-    printf("Task corrente: %s\n", task_name);
-    printf("Task corrente: %s\n", task_name);
-    printf("Task corrente: %s\n", task_name);
-
-    printf("Snapshot della PSRAM prima di inizializzare il face detector\n");
-    monitor_log_ram_usage("INFERENCE_FACE_DETECTOR_START");
-    monitor_print_ram_stats();
-    //monitor_memory_region_details();
     
     // Crea il detector per face detection
     inf->face_detector = new HumanFaceDetect(); //MSRMNP_S8_V1
@@ -195,11 +191,6 @@ bool inference_face_detector_init(inference_t *inf) {
         return false;
     }
 
-    printf("Snapshot della PSRAM dopo aver inizializzato il face detector\n");
-    monitor_log_ram_usage("INFERENCE_FACE_DETECTOR_END");
-    monitor_print_ram_stats();
-    //monitor_memory_region_details();
-    
     inf->face_detector_initialized = true;
     ESP_LOGI(TAG, "Face detector HumanFaceDetect inizializzato con successo");
     return true;
@@ -311,7 +302,7 @@ bool inference_face_detection(inference_t *inf, const uint8_t* jpeg_data, size_t
 
 
     // Stampa i risultati per CLI
-    printf("=== RISULTATI INFERENZA ===\n");
+    printf("=== RISULTATI INFERENZA FACE DETECTION ===\n");
     printf("Volto rilevato: %s\n", result->face_detected ? "SI" : "NO");
     printf("Tempo preprocessing: %lu ms\n", result->preprocessing_time_ms);
     printf("Tempo processing inferenza: %lu ms\n", result->processing_time_ms);
@@ -361,6 +352,20 @@ void inference_face_detector_deinit(inference_t *inf) {
     ESP_LOGI(TAG, "Face detector HumanFaceDetect deinizializzato");
 }
 
+void inference_yolo_deinit(inference_t *inf) {
+    if (!inf || !inf->yolo_model_initialized) {
+        return;
+    }
+
+    if (inf->yolo_model) {
+        delete inf->yolo_model;
+        inf->yolo_model = nullptr;
+    }
+
+    inf->yolo_model_initialized = false;
+    ESP_LOGI(TAG, "Modello YOLO deinizializzato");
+}
+
 void inference_deinit(inference_t *inf) {
     if (!inf || !inf->initialized) {
         return;
@@ -370,6 +375,9 @@ void inference_deinit(inference_t *inf) {
     
     // Deinizializza prima il face detector
     inference_face_detector_deinit(inf);
+
+    // Deinizializza il modello YOLO
+    inference_yolo_deinit(inf);
     
     inf->initialized = false;
     ESP_LOGI(TAG, "Sistema di inferenza deinizializzato");
@@ -379,7 +387,7 @@ void inference_deinit(inference_t *inf) {
 
 bool inference_init_legacy(void) {
     inference_t *inf = get_inference_instance();
-    return inference_init(inf) && inference_face_detector_init(inf);
+    return inference_init(inf) && inference_face_detector_init(inf) && inference_yolo_init(inf);
 }
 
 bool inference_yolo_init_legacy(void) {

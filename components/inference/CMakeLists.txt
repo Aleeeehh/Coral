@@ -6,7 +6,7 @@ elseif("___idf_esp-dl" IN_LIST component_targets)
 endif()
 set(cmake_dir ${espdl_dir}/fbs_loader/cmake)
 include(${cmake_dir}/utilities.cmake)
-set(embed_files yolo11n.espdl)  # Cambiato da models/yolo11n.espdl
+set(embed_files yolo11n.espdl)  #Binario .espdl del modello yolo11n
 
 idf_component_register(
     SRCS "inference.cpp" "yolo11n_detect.cpp"

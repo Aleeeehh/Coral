@@ -157,15 +157,20 @@ static void cli_task(void *pvParameters){
     printf("===========================\n");
     printf("INTERFACCIA A RIGA DI COMANDO\n"); 
     printf("===========================\n");
-    printf("h: mostra i comandi disponibili\n");
-    printf("i: Inizializza la fotocamera e il sistema di inferenza\n");
-    printf("d: Deinizializza la fotocamera e il sistema di inferenza\n");
+    printf("w: Avvia il webserver per web UI\n");
     printf("+: aumenta risoluzione fotocamera\n");
     printf("-: riduci risoluzione fotocamera\n");
-    printf("w: Avvia il webserver per web UI\n");
-    printf("s: Scatta foto ed esegui inferenza\n");
-    printf("f: Inizializza il modello di inferenza Yolo esterno\n");
-    printf("e: Esci\n");
+    printf("h: mostra i comandi disponibili\n");
+    printf("===========================\n");
+    printf("COMANDI DI INIZIALIZZAZIONE\n"); 
+    printf("===========================\n");
+    printf("i: Inizializza la fotocamera e istanzia i modelli Face Detection e YOLO\n");
+    printf("d: Deinizializza la fotocamera e i modelli Face Detection e YOLO\n");
+    printf("===========================\n");
+    printf("COMANDI DI INFERENZA\n"); 
+    printf("===========================\n");
+    printf("s: Scatta foto ed esegui inferenza Yolo\n");
+    printf("a: Scatta foto ed esegui inferenza Face Detection\n");
     printf("===========================\n");
     printf("COMANDI DI MONITORAGGIO\n"); 
     printf("===========================\n");
@@ -179,6 +184,7 @@ static void cli_task(void *pvParameters){
     printf("t: Mostra statistiche task\n");
     printf("r: Mostra statistiche RAM\n");
     printf("===========================\n");
+    printf("e: Esci\n");
     printf("Inserisci un comando:\n");
     int command;
     while (true) {
@@ -187,12 +193,16 @@ static void cli_task(void *pvParameters){
             printf("Avvio webserver per web UI all'IP 172.20.10.3...\n");
             start_webserver();
         }
+        else if (command == 'a') {
+            printf("Scatto foto ed eseguo inferenza su face detection...\n");
+            camera_capture_and_inference(&g_camera, NULL, 0);
+        }
         else if (command == 's') {
-            printf("Scatto foto ed eseguo inferenza...\n");
-            camera_capture_and_inference(&g_camera, NULL);
+            printf("Scatto foto ed eseguo inferenza su YOLO...\n");
+            camera_capture_and_inference(&g_camera, NULL, 1);
         }
         else if (command == 'i'){
-            printf("Inizializza il sistema di inferenza e la fotocamera...\n");
+            printf("Inizializza la fotocamera e istanzia i modelli Face Detection e YOLO...\n");
             inference_init_legacy();
             camera_init(&g_camera);
             int width, height;
@@ -207,7 +217,7 @@ static void cli_task(void *pvParameters){
             inference_yolo_init_legacy();
         }
         else if (command == 'd') {
-            printf("Deinizializza la fotocamera e il sistema di inferenza...\n");
+            printf("Deinizializza la fotocamera e i modelli Face Detection e YOLO...\n");
             camera_deinit(&g_camera);
             inference_deinit_legacy();
         }
@@ -262,15 +272,20 @@ static void cli_task(void *pvParameters){
             printf("===========================\n");
             printf("INTERFACCIA A RIGA DI COMANDO\n"); 
             printf("===========================\n");
-            printf("h: mostra i comandi disponibili\n");
-            printf("i: Inizializza la fotocamera e il sistema di inferenza\n");
-            printf("d: Deinizializza la fotocamera e il sistema di inferenza\n");
+            printf("w: Avvia il webserver per web UI\n");
             printf("+: aumenta risoluzione fotocamera\n");
             printf("-: riduci risoluzione fotocamera\n");
-            printf("w: Avvia il webserver per web UI\n");
-            printf("s: Scatta foto ed esegui inferenza\n");
-            printf("f: Inizializza il modello di inferenza Yolo esterno\n");
-            printf("e: Esci\n");
+            printf("h: mostra i comandi disponibili\n");
+            printf("===========================\n");
+            printf("COMANDI DI INIZIALIZZAZIONE\n"); 
+            printf("===========================\n");
+            printf("i: Inizializza la fotocamera e istanzia i modelli Face Detection e YOLO\n");
+            printf("d: Deinizializza la fotocamera e i modelli Face Detection e YOLO\n");
+            printf("===========================\n");
+            printf("COMANDI DI INFERENZA\n"); 
+            printf("===========================\n");
+            printf("s: Scatta foto ed esegui inferenza Yolo\n");
+            printf("a: Scatta foto ed esegui inferenza Face Detection\n");
             printf("===========================\n");
             printf("COMANDI DI MONITORAGGIO\n"); 
             printf("===========================\n");
@@ -284,6 +299,7 @@ static void cli_task(void *pvParameters){
             printf("t: Mostra statistiche task\n");
             printf("r: Mostra statistiche RAM\n");
             printf("===========================\n");
+            printf("e: Esci\n");
             printf("Inserisci un comando:\n");
         }
         else if (command == 'e') {
@@ -308,12 +324,19 @@ static void ai_task(void *pvParameters)
         if (xQueueReceive(ai_task_queue, &message, portMAX_DELAY) == pdTRUE) {
 
             inference_result_t result;
-            //Inference face detection o Yolo
-            //if (inference_process_image(message.image_buffer, message.image_size, &result)) {
-            if (inference_process_image_yolo(message.image_buffer, message.image_size, &result)) {
-                ESP_LOGI(TAG, "AI Task: Inferenza completata con successo");
-            } else {
-                ESP_LOGE(TAG, "AI Task: Errore durante l'inferenza");
+
+            if (message.inference_type == 1) {
+                if (inference_process_image_yolo(message.image_buffer, message.image_size, &result)) {
+                    ESP_LOGI(TAG, "AI Task: Inferenza completata con successo");
+                } else {
+                    ESP_LOGE(TAG, "AI Task: Errore durante l'inferenza");
+                }
+            } else if (message.inference_type == 0) {
+                if (inference_process_image(message.image_buffer, message.image_size, &result)) {
+                    ESP_LOGI(TAG, "AI Task: Inferenza completata con successo");
+                } else {
+                    ESP_LOGE(TAG, "AI Task: Errore durante l'inferenza");
+                }
             }
             
             // Libera la memoria del frame (allocata dalla CLI task)
