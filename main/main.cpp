@@ -323,15 +323,17 @@ static void ai_task(void *pvParameters)
         // Aspetta un messaggio dalla main task (CLI per ora), si blocca finchè non riceve un frame sui cui fare inference
         if (xQueueReceive(ai_task_queue, &message, portMAX_DELAY) == pdTRUE) {
 
-            inference_result_t result;
+            
 
             if (message.inference_type == 1) {
+                yolo_inference_result_t result;
                 if (inference_process_image_yolo(message.image_buffer, message.image_size, &result)) {
                     ESP_LOGI(TAG, "AI Task: Inferenza completata con successo");
                 } else {
                     ESP_LOGE(TAG, "AI Task: Errore durante l'inferenza");
                 }
             } else if (message.inference_type == 0) {
+                inference_result_t result;
                 if (inference_process_image(message.image_buffer, message.image_size, &result)) {
                     ESP_LOGI(TAG, "AI Task: Inferenza completata con successo");
                 } else {

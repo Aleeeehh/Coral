@@ -231,7 +231,7 @@ function decrementResolution() {
 
     function detectFace()
     {
-        console.log('🤖 Avvio rilevamento faccia...');
+        console.log(' Avvio rilevamento faccia...');
         
         fetch('/inference', {
             method: 'POST',
@@ -265,7 +265,7 @@ function decrementResolution() {
                     // Per ora disegna solo la prima faccia (puoi estendere per multiple facce)
                     const firstFace = data.faces[0];
                     if (firstFace.bounding_box) {
-                        drawFaceBox(firstFace.bounding_box);
+                        drawBox(firstFace.bounding_box);
                     }
                     /*
                     // Disegna i keypoints se presenti
@@ -276,7 +276,7 @@ function decrementResolution() {
                     }
                     */
                 } else {
-                    hideFaceBox();
+                    hideBox();
                     hideKeypoints();
                 }
                 // Aggiorna la foto
@@ -295,9 +295,9 @@ function decrementResolution() {
         });
     }
 
-    function detectPerson()
+    function detectYolo()
     {
-        console.log('🤖 Avvio rilevamento persona...');
+        console.log(' Avvio rilevamento YOLO...');
         
         fetch('/yolo_inference', {
             method: 'POST',
@@ -310,34 +310,34 @@ function decrementResolution() {
             console.log('✅ Risultato inferenza YOLO:', data);
             
             if (data.success) {
-                const result = data.person_detected ? `✅ ${data.num_persons} PERSONA/E RILEVATA/E` : '❌ NESSUNA PERSONA';
+                const result = data.num_detections > 0 ? `✅ ${data.num_detections} DETECTION EFFETTUATE!` : '❌ NESSUNA DETECTION';
                 const statusDiv = document.getElementById('status');
-                
-                // Calcola confidence media se ci sono persone
+                // Calcola confidence media se ci sono detection
+
                 let avgConfidence = 0;
-                if (data.person_detected && data.persons && data.persons.length > 0) {
-                    const totalConfidence = data.persons.reduce((sum, person) => sum + person.confidence, 0);
-                    avgConfidence = (totalConfidence / data.persons.length * 100).toFixed(1);
+                if (data.detections && data.detections.length > 0) {
+                    const totalConfidence = data.detections.reduce((sum, detection) => sum + detection.score, 0);
+                    avgConfidence = (totalConfidence / data.detections.length * 100).toFixed(1);
                 }
                 
                 // Aggiorna il div status con il risultato
-                statusDiv.textContent = `${result} | Confidence media: ${avgConfidence}% | Tempo: ${data.inference_time_ms}ms`;
-                
+                statusDiv.textContent = `${result} | Confidence media: ${avgConfidence}% | Tempo: ${data.full_inference_time_ms}ms`;
                 // Applica la classe CSS appropriata
-                statusDiv.className = 'status ' + (data.person_detected ? 'person-detected' : 'no-person');
+                statusDiv.className = 'status ' + (data.num_detections > 0 ? 'face-detected' : 'no-face');
                 
-                /*
-                // Disegna i rettangoli per tutte le persone rilevate
-                if (data.person_detected && data.persons && data.persons.length > 0) {
-                    // Per ora disegna solo la prima persona
-                    const firstPerson = data.persons[0];
-                    if (firstPerson.bounding_box) {
-                        drawPersonBox(firstPerson.bounding_box);
+                // Disegna le bounding box per tutte le detection rilevate
+                if (data.detections && data.detections.length > 0) {
+                    // Per ora disegna solo la prima detection (puoi estendere per multiple detection)
+                    const firstDetection = data.detections[0];
+                    if (firstDetection.bounding_box) {
+                        console.log('🎯 BoundingBox da dare alla drawBox:', firstDetection.bounding_box);
+                        drawBox(firstDetection.bounding_box);
                     }
                 } else {
-                    hidePersonBox();
+                    console.log('❌ Non disegno alcuna box');
+                    hideBox();
                 }
-                    */
+                
                 // Aggiorna la foto
                 updatePhoto();
             } else {
@@ -354,7 +354,8 @@ function decrementResolution() {
         });
     }
 
-    function drawFaceBox(boundingBox) {
+    function drawBox(boundingBox) {
+        console.log('🎯 BoundingBox dentro drawBox:', boundingBox);
         const overlay = document.getElementById('face-overlay');
         const img = document.getElementById('photo');
         const container = document.getElementById('photo-container');
@@ -390,7 +391,7 @@ function decrementResolution() {
     }
 
 
-function hideFaceBox() {
+function hideBox() {
     const overlay = document.getElementById('face-overlay');
     overlay.style.display = 'none';
 }
@@ -463,7 +464,7 @@ async function capturePhoto() {
         if (data.success) {
             // Aggiorna l'immagine dopo lo scatto
             updatePhoto();
-            hideFaceBox();
+            hideBox();
             
             // Mostra feedback
             document.getElementById('status').textContent = '✅ Foto scattata con successo!';
@@ -517,8 +518,8 @@ async function capturePhoto() {
         }
     }
 
-    // Funzione per testare drawFaceBox manualmente
-    function testDrawFaceBox() {
+    // Funzione per testare drawBox manualmente
+    function testDrawBox() {
         const x1 = parseInt(document.getElementById('x1').value);
         const y1 = parseInt(document.getElementById('y1').value);
         const x2 = parseInt(document.getElementById('x2').value);
@@ -538,10 +539,10 @@ async function capturePhoto() {
         // Crea array bounding box nel formato [x1, y1, x2, y2]
         const boundingBox = [x1, y1, x2, y2];
         
-        console.log('🧪 Test manuale drawFaceBox con coordinate:', boundingBox);
+        console.log('🧪 Test manuale drawBox con coordinate:', boundingBox);
         
-        // Chiama la funzione drawFaceBox esistente
-        drawFaceBox(boundingBox);
+        // Chiama la funzione drawBox esistente
+        drawBox(boundingBox);
         
         // Mostra feedback
         document.getElementById('status').textContent = `✅ Box disegnato: [${x1}, ${y1}, ${x2}, ${y2}]`;
@@ -558,7 +559,7 @@ async function capturePhoto() {
         <p style="display: flex; flex-wrap: wrap; justify-content: center; gap: 10px;">
             <button class="photo-btn" onclick="capturePhoto()">📸 Scatta Foto</button>
             <button class="inference-btn" onclick="detectFace()">😁 Face Detection</button>
-            <button class="inference-btn" onclick="detectPerson()">✌️ YOLO11</button>
+            <button class="inference-btn" onclick="detectYolo()">✌️ YOLO11</button>
             <button onclick="changeResolution(1)">⬆️ Aumenta Risoluzione</button>
             <button onclick="changeResolution(0)">⬇️ Diminuisci Risoluzione</button>
         </p>
@@ -571,15 +572,15 @@ async function capturePhoto() {
                 <div style="margin: 20px; padding: 15px; border: 2px solid #FF6B35; border-radius: 5px; background-color: #fff5f0;">
                     <h3>🧪 Test Manuale Bounding Box</h3>
                     <p style="margin: 5px 0; font-size: 14px; color: #666;">
-                        Inserisci le coordinate [x1, y1, x2, y2] per testare drawFaceBox:
+                        Inserisci le coordinate [x1, y1, x2, y2] per testare drawBox:
                     </p>
                     <div style="display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: center;">
                         <input type="number" id="x1" placeholder="x1" style="width: 60px; padding: 5px; border: 1px solid #ccc; border-radius: 3px;">
                         <input type="number" id="y1" placeholder="y1" style="width: 60px; padding: 5px; border: 1px solid #ccc; border-radius: 3px;">
                         <input type="number" id="x2" placeholder="x2" style="width: 60px; padding: 5px; border: 1px solid #ccc; border-radius: 3px;">
                         <input type="number" id="y2" placeholder="y2" style="width: 60px; padding: 5px; border: 1px solid #ccc; border-radius: 3px;">
-                        <button onclick="testDrawFaceBox()" style="background-color: #FF6B35; color: white; padding: 8px 15px; border: none; border-radius: 3px; cursor: pointer;">🎯 Disegna Box</button>
-                        <button onclick="hideFaceBox()" style="background-color: #666; color: white; padding: 8px 15px; border: none; border-radius: 3px; cursor: pointer;">❌ Nascondi Box</button>
+                        <button onclick="testDrawBox()" style="background-color: #FF6B35; color: white; padding: 8px 15px; border: none; border-radius: 3px; cursor: pointer;">🎯 Disegna Box</button>
+                        <button onclick="hideBox()" style="background-color: #666; color: white; padding: 8px 15px; border: none; border-radius: 3px; cursor: pointer;">❌ Nascondi Box</button>
                     </div>
                 </div>
     </div>

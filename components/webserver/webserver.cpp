@@ -289,6 +289,66 @@ static esp_err_t yolo_inference_post_handler(httpd_req_t *req)
     return ESP_OK;
 }
 
+static esp_err_t yolo_inference_post_handler2(httpd_req_t *req){
+    webserver_t *ws = get_webserver_instance();
+    ESP_LOGI(TAG, "Richiesta inferenza ricevuta");
+    
+    // Scatta una nuova foto
+    if (camera_capture_photo(&ws->camera) != ESP_OK) {
+        ESP_LOGE(TAG, "Errore durante lo scatto della foto");
+        httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Errore camera");
+        return ESP_FAIL;
+    }
+    
+    // Ottieni i dati della foto
+    uint8_t *photo_buffer;
+    size_t photo_size;
+    if (camera_get_last_photo(&ws->camera, &photo_buffer, &photo_size) != ESP_OK) {
+        ESP_LOGE(TAG, "Nessuna foto disponibile per l'inferenza");
+        httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Nessuna foto");
+        return ESP_FAIL;
+    }
+
+    // Esegui inferenza
+    ESP_LOGI(TAG, "Avvio inferenza su immagine di %zu bytes", photo_size);
+    yolo_inference_result_t result;
+    if (!inference_process_image_yolo(photo_buffer, photo_size, &result)) {
+        ESP_LOGE(TAG, "Errore durante l'inferenza - photo_size: %zu bytes, photo_buffer: %p", 
+                 photo_size, (void*)photo_buffer);
+        ESP_LOGE(TAG, "Da controllare: 1) Sistema inferenza inizializzato 2) Dati JPEG validi 3) Memoria disponibile");
+        httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Errore inferenza");
+        return ESP_FAIL;
+    }
+
+    char response[2048];
+    snprintf(response, sizeof(response), 
+    "{\"full_inference_time_ms\":%lu, \"num_detections\":%d, \"detections\":[",
+    result.full_inference_time_ms,
+    result.num_detections);
+
+    for (int i = 0; i < result.num_detections; i++) {
+    char detection_str[256];
+    snprintf(detection_str, sizeof(detection_str), 
+        "%s{\"category\":%d,\"score\":%f,\"bounding_box\":[%lu,%lu,%lu,%lu]}",
+        (i > 0) ? "," : "",
+        result.detections[i].category,
+        result.detections[i].score,
+        result.detections[i].box[0],
+        result.detections[i].box[1],
+        result.detections[i].box[2],
+        result.detections[i].box[3]);
+    
+    strcat(response, detection_str);
+    }   
+    strcat(response, "], \"success\":true}");
+    
+
+    httpd_resp_set_type(req, "application/json");
+    httpd_resp_send(req, response, strlen(response));
+
+    return ESP_OK;
+}
+
 // Tabella degli URI handler
 static const httpd_uri_t uri_handlers[] = {
     {.uri = "/", //manda il frontend al browser
@@ -317,7 +377,7 @@ static const httpd_uri_t uri_handlers[] = {
      .user_ctx = NULL},
     {.uri = "/yolo_inference",
      .method = HTTP_POST,
-     .handler = yolo_inference_post_handler,
+     .handler = yolo_inference_post_handler2,
      .user_ctx = NULL}};
 
 

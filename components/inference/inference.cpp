@@ -107,7 +107,7 @@ bool inference_yolo_init(inference_t *inf) {
 
 }
 
-bool inference_yolo_detection(inference_t *inf, const uint8_t* jpeg_data, size_t jpeg_size, inference_result_t* result) {
+bool inference_yolo_detection(inference_t *inf, const uint8_t* jpeg_data, size_t jpeg_size, yolo_inference_result_t* result) {
     
     if (!inf || !inf->initialized || !inf->yolo_model) {
         ESP_LOGE(TAG, "Sistema di inferenza non inizializzato");
@@ -143,7 +143,7 @@ bool inference_yolo_detection(inference_t *inf, const uint8_t* jpeg_data, size_t
     end_time_full_inference = esp_timer_get_time() / 1000; //smetti di contare tempo inferenza totale
 
     
-    // 3. PROCESSA RISULTATI (come nell'esempio Espressif)
+    // 3. PROCESSA I RISULTATI (come nell'esempio Espressif)
     printf("=== RISULTATI INFERENZA YOLO11n ===\n");
     printf("Numero di detection effettuate: %d\n", detect_results.size());
     printf("Tempo preprocessing: %lu ms\n", end_time_preprocessing - start_time_preprocessing);
@@ -157,8 +157,26 @@ bool inference_yolo_detection(inference_t *inf, const uint8_t* jpeg_data, size_t
                  res.box[1],
                  res.box[2],
                  res.box[3]);
+        
     }
     printf("===========================\n");
+
+    //popola il risultato
+    result->preprocessing_time_ms = end_time_preprocessing - start_time_preprocessing;
+    result->processing_time_ms = end_time_processing - start_time_processing;
+    result->full_inference_time_ms = end_time_full_inference - start_time_full_inference;
+    result->num_detections = detect_results.size();
+    int i = 0;
+    for (const auto &res : detect_results) {
+        result->detections[i].category = res.category;
+        result->detections[i].score = res.score;
+        result->detections[i].box[0] = res.box[0];
+        result->detections[i].box[1] = res.box[1];
+        result->detections[i].box[2] = res.box[2];
+        result->detections[i].box[3] = res.box[3];
+        i++;
+    }
+    
 
     
     // 4. LIBERA MEMORIA (come nell'esempio Espressif)
@@ -395,11 +413,10 @@ bool inference_yolo_init_legacy(void) {
     return inference_init(inf) && inference_yolo_init(inf);
 }
 
-bool inference_process_image_yolo(const uint8_t* jpeg_data, size_t jpeg_size, inference_result_t* result) {
+bool inference_process_image_yolo(const uint8_t* jpeg_data, size_t jpeg_size, yolo_inference_result_t* result) {
     inference_t *inf = get_inference_instance();
     return inference_yolo_detection(inf, jpeg_data, jpeg_size, result);
 }
-
 
 bool inference_process_image(const uint8_t* jpeg_data, size_t jpeg_size, inference_result_t* result) {
     inference_t *inf = get_inference_instance();

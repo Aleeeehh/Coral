@@ -26,13 +26,21 @@ typedef struct {
     float confidence; // Confidenza del viso
 } face_t;
 
-// Struttura per i risultati YOLO
+// Struttura per le detection YOLO
 typedef struct {
+    int category; // Categoria/classe della detection
     float score; // Confidence score
     uint32_t box[4]; // Bounding box [x, y, width, height]
-    uint32_t class_id; // Class ID
-    char class_name[32]; // Class name
 } yolo_detection_t;
+
+// Struttura per i risultati dell'inferenza YOLO
+typedef struct {
+    uint32_t preprocessing_time_ms; //tempo di esecuzione preprocessing
+    uint32_t processing_time_ms; //tempo di esecuzione singola inferenza
+    uint32_t full_inference_time_ms; //tempo di esecuzione totale inferenza (preprocessing + inferenza + postprocessing)
+    int num_detections; //numero di detection effettuate
+    yolo_detection_t detections[MAX_YOLO_DETECTIONS];
+} yolo_inference_result_t;
 
 typedef struct {
     bool face_detected;
@@ -159,7 +167,7 @@ bool inference_yolo_init_legacy(void);
  * @param result Puntatore alla struttura risultato
  * @return true se l'inferenza è riuscita, false altrimenti
  */
-bool inference_process_image_yolo(const uint8_t* jpeg_data, size_t jpeg_size, inference_result_t* result);
+bool inference_process_image_yolo(const uint8_t* jpeg_data, size_t jpeg_size, yolo_inference_result_t* result);
 
 /**
  * @brief Elabora un'immagine JPEG e esegue l'inferenza YOLO detection
@@ -169,7 +177,7 @@ bool inference_process_image_yolo(const uint8_t* jpeg_data, size_t jpeg_size, in
  * @param result Puntatore alla struttura risultato
  * @return true se l'inferenza è riuscita, false altrimenti
  */
-bool inference_yolo_detection(inference_t *inf, const uint8_t* jpeg_data, size_t jpeg_size, inference_result_t* result);
+bool inference_yolo_detection(inference_t *inf, const uint8_t* jpeg_data, size_t jpeg_size, yolo_inference_result_t* result);
 
 /**
  * @brief Ottiene l'istanza globale del sistema di inferenza (per compatibilità)
