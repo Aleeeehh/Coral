@@ -4,6 +4,7 @@
 #include "freertos/task.h"
 #include "freertos/queue.h"
 #include "freertos/event_groups.h"
+#include "driver/gpio.h"
 #include "esp_system.h"
 #include "esp_wifi.h"
 #include "esp_event.h"
@@ -20,6 +21,8 @@
 
 static const char *TAG = "MAIN";
 
+#define LED_PIN GPIO_NUM_3 //pin del LED onboard dell'esp32-s3
+
 // Inizializza la fotocamera globalmente
 camera_t g_camera;
 
@@ -35,6 +38,17 @@ const int WIFI_CONNECTED_BIT = BIT0; // bit flag per intendere "wifi connesso" (
 
 // Gestore di task, può essere usato per sospendere, modificare,riprendere, eliminare, o ottenere informazioni su di esso
 static TaskHandle_t webserver_task_handle = NULL;
+
+
+void switch_on_led(){
+            gpio_set_level(LED_PIN, 1);  // Accendi (1 = HIGH)
+            printf("LED acceso\n");
+}
+
+void switch_off_led(){
+            gpio_set_level(LED_PIN, 0);  // Spegni (0 = LOW)
+            printf("LED spento\n");
+}
 
 
 // WiFi event handler, gestisce tre eventi diversi
@@ -161,6 +175,8 @@ static void cli_task(void *pvParameters){
     printf("+: aumenta risoluzione fotocamera\n");
     printf("-: riduci risoluzione fotocamera\n");
     printf("h: mostra i comandi disponibili\n");
+    printf("l: accendi il LED\n");
+    printf("k: spegni il LED\n");
     printf("===========================\n");
     printf("COMANDI DI INIZIALIZZAZIONE\n"); 
     printf("===========================\n");
@@ -200,6 +216,12 @@ static void cli_task(void *pvParameters){
         else if (command == 's') {
             printf("Scatto foto ed eseguo inferenza su YOLO...\n");
             camera_capture_and_inference(&g_camera, NULL, 1);
+        }
+        else if (command == 'l'){
+            switch_on_led();
+        }
+        else if (command == 'k'){
+            switch_off_led();
         }
         else if (command == 'i'){
             printf("Inizializza la fotocamera e istanzia i modelli Face Detection e YOLO...\n");
@@ -276,6 +298,8 @@ static void cli_task(void *pvParameters){
             printf("+: aumenta risoluzione fotocamera\n");
             printf("-: riduci risoluzione fotocamera\n");
             printf("h: mostra i comandi disponibili\n");
+            printf("l: accendi il LED\n");
+            printf("k: spegni il LED\n");
             printf("===========================\n");
             printf("COMANDI DI INIZIALIZZAZIONE\n"); 
             printf("===========================\n");
@@ -303,7 +327,7 @@ static void cli_task(void *pvParameters){
             printf("Inserisci un comando:\n");
         }
         else if (command == 'e') {
-            printf("Uscita...\n");
+            printf("Uscita CLI...\n");
             break;
         }
         vTaskDelay(pdMS_TO_TICKS(100));
@@ -322,8 +346,6 @@ static void ai_task(void *pvParameters)
     while (true) {
         // Aspetta un messaggio dalla main task (CLI per ora), si blocca finchè non riceve un frame sui cui fare inference
         if (xQueueReceive(ai_task_queue, &message, portMAX_DELAY) == pdTRUE) {
-
-            
 
             if (message.inference_type == 1) {
                 yolo_inference_result_t result;
@@ -354,6 +376,12 @@ static void ai_task(void *pvParameters)
 extern "C" void app_main(void)
 {
     ESP_LOGI(TAG, "Avvio ESP32-S3 Ai Camera con ESP-IDF e FreeRTOS");
+
+    // Configura il pin del LED onboard dell'esp32-s3
+    gpio_config_t io_conf = {};
+            io_conf.mode = GPIO_MODE_OUTPUT;
+            io_conf.pin_bit_mask = (1ULL << LED_PIN);
+            gpio_config(&io_conf);
 
     // Inizializza NVS = "Non volatil storage" (Memoria flash dell'esp32)
     esp_err_t ret = nvs_flash_init();

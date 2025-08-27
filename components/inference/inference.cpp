@@ -13,25 +13,15 @@
 #include "yolo11n_detect.h"
 
 // ESP-DL includes
-//#include "dl_model.hpp"
 #include "dl_tool.hpp" 
 #include "dl_model_base.hpp"
 #include "fbs_loader.hpp"
 #include "dl_detect_yolo11_postprocessor.hpp"
 
-//#include "esp_dl_package.h"
-
 static const char* TAG = "INFERENCE";
 
-//risorse e puntatori per il modello Yolo in tflite
-//extern const uint8_t yolo11n_float32_tflite_start[] asm("_binary_yolo11n_float32_tflite_start");
-//extern const uint8_t yolo11n_float32_tflite_end[] asm("_binary_yolo11n_float32_tflite_end");
-//static const tflite::Model* model = nullptr;
-//static tflite::MicroInterpreter* interpreter = nullptr;
-//static uint8_t* tensor_arena = nullptr;
-
-//risorse e puntatori per il modello Yolo in espdl
-//extern const uint8_t yolo11n_int8_espdl_end[] asm("_binary_yolo11n_int8_espdl_end");
+extern void switch_on_led();
+extern void switch_off_led();
 
 static dl::tool::Latency latency;
 
@@ -142,6 +132,12 @@ bool inference_yolo_detection(inference_t *inf, const uint8_t* jpeg_data, size_t
 
     end_time_full_inference = esp_timer_get_time() / 1000; //smetti di contare tempo inferenza totale
 
+    if (detect_results.size() > 0){ //accendi il LED se ci sono detection rilevate
+        switch_on_led();
+    }
+    else{ //spegni il LED se non ci sono detection rilevate
+        switch_off_led();
+    }
     
     // 3. PROCESSA I RISULTATI (come nell'esempio Espressif)
     printf("=== RISULTATI INFERENZA YOLO11n ===\n");
@@ -250,6 +246,13 @@ bool inference_face_detection(inference_t *inf, const uint8_t* jpeg_data, size_t
         auto &detect_results = detector->run(img); //esegui l'inferenza
         end_time_processing = esp_timer_get_time() / 1000; //smetti di contare tempo inferenza
         result->num_faces = detect_results.size();
+
+        if (result->num_faces > 0){ //accendi il LED se ci sono facce rilevate
+            switch_on_led();
+        }
+        else{ //spegni il LED se non ci sono facce rilevate
+            switch_off_led();
+        }
         
         //Postprocessing
         start_time_postprocessing = esp_timer_get_time() / 1000;  //inizia a contare tempo postprocessing
