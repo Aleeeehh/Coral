@@ -11,7 +11,7 @@ set(embed_files yolo11n.espdl)  #Binario .espdl del modello yolo11n
 idf_component_register(
     SRCS "inference.cpp" "yolo11n_detect.cpp"
     INCLUDE_DIRS "include"
-    REQUIRES esp-dl esp32-camera esp_new_jpeg human_face_detect monitor esp-tflite-micro
+    REQUIRES esp-dl esp32-camera esp_new_jpeg human_face_detect monitor coco_detect #esp-tflite-micro
 )
 target_add_aligned_binary_data(${COMPONENT_LIB} ${embed_files} BINARY)
 

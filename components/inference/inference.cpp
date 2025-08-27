@@ -5,12 +5,13 @@
 #include <string.h>
 #include "dl_image.hpp"
 #include "human_face_detect.hpp"
-#include "tensorflow/lite/micro/micro_interpreter.h"
-#include "tensorflow/lite/schema/schema_generated.h"
-#include "tensorflow/lite/micro/micro_mutable_op_resolver.h"
+//#include "tensorflow/lite/micro/micro_interpreter.h"
+//#include "tensorflow/lite/schema/schema_generated.h"
+//#include "tensorflow/lite/micro/micro_mutable_op_resolver.h"
 #include "monitor.h"
 #include <string.h>
 #include "yolo11n_detect.h"
+#include "coco_detect.hpp"
 
 // ESP-DL includes
 #include "dl_tool.hpp" 
@@ -124,7 +125,8 @@ bool inference_yolo_detection(inference_t *inf, const uint8_t* jpeg_data, size_t
     end_time_preprocessing = esp_timer_get_time() / 1000; //smetti di contare tempo preprocessing
 
     // 2. USA LA NUOVA CLASSE (come nell'esempio Espressif)
-    YOLO11nDetect *detect = new YOLO11nDetect(inf->yolo_model);
+    YOLO11nDetect *detect = new YOLO11nDetect(inf->yolo_model); //modello yolo11n mio
+    //COCODetect *detect = new COCODetect(); //modello yolo11n coco di espressif (scarso)
 
     start_time_processing = esp_timer_get_time() / 1000;  //inizia a contare tempo inferenza 
     auto &detect_results = detect->run(img);
