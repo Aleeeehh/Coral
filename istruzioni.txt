@@ -10,6 +10,7 @@ oppure "idf.py -p /dev/cu.usbmodem101 monitor"
 - "idf.py size-components" //mostra consumo ram e flash di ogni componente
 
 PER AGGIORNARE LE DIPENDENZE
+- "idf.py fullclean" //pulizia della build e dei managed_components
 - "idf.py reconfigure" //installa tutte le librerie specificate in idf_component.yml
 - "idf.py clean" //Rimuove i file di build precedenti
 - "idf.py build" //Ricompila tutto con le nuove dipendenze
