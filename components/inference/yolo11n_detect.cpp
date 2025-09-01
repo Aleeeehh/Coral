@@ -17,7 +17,7 @@ YOLO11nDetect::YOLO11nDetect(dl::Model* model) {
     // Inizializza yolo11PostProcessor (come in COCODetect)
     m_postprocessor = new dl::detect::yolo11PostProcessor(
         m_model, 
-        0.25,   // score_threshold //si può abbassare per risoluzioni bassissime come 64x64 
+        0.25,   // score_threshold //ORIGINARIAMENTE E' 0.25!! //si può abbassare per risoluzioni bassissime come 64x64 
         0.7,    // nms_threshold
         10,     // resize_scale_x
         {{8, 8, 4, 4}, {16, 16, 8, 8}, {32, 32, 16, 16}} // stages
