@@ -11,3 +11,6 @@ OGNI VOLTA CHE AGGIUNGI UNA DIPENDENZA ALL'AMBIENTE VIRTUALE
 - crea un nuovo kernel con l'attuale venv: python -m ipykernel install --user --name=esp32cam_venv --display-name="NOMEKERNEL"
 - Riavvia l'IDE
 - Seleziona il kernel appena creato
+
+IL FILE YAML DI VALUTAZIONE DEL MODELLO SI TROVA IN:
+"/Users/alessioprato/Desktop/Tesi Nuova/ESP32CAM_ESPIDF/Notebooks/.venv/lib/python3.10/site-packages/ultralytics/cfg/datasets/coco.yaml"
