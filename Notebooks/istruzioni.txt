@@ -14,3 +14,10 @@ OGNI VOLTA CHE AGGIUNGI UNA DIPENDENZA ALL'AMBIENTE VIRTUALE
 
 IL FILE YAML DI VALUTAZIONE DEL MODELLO SI TROVA IN:
 "/Users/alessioprato/Desktop/Tesi Nuova/ESP32CAM_ESPIDF/Notebooks/.venv/lib/python3.10/site-packages/ultralytics/cfg/datasets/coco.yaml"
+
+PER FINETUNARE UN MODELLO IN MODO SEMPLICE
+- apri terminale dentro la cartella "Notebooks"
+- Attiva ambiente virtuale: source venv/bin/activate
+- lancia script training: python3 train_retry.py
+- Se vuoi ricominciare training da zero: cancella cartalla run/detect/train
+- Una volta terminate tutte le epoche rinomina la cartella run/detect/train
