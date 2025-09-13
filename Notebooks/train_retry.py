@@ -15,7 +15,7 @@ device = "mps"
 freeze = 11 #congela l'intera backbone(vanno da 0 a 10), pure l'ultimo blocco C2PSA di attention
 classes = [0]
 batch = 16 # 16 e -1 sono equivalenti con mps
-epochs = 30
+epochs = 50
 val = False
 imgsz = 640
 workers = 0 # sembra il migliore in velocità e per memory leaks
@@ -53,11 +53,23 @@ def val_person_callback(trainer):
     checkpoint_dir = f"runs/detect/train/checkpoints"
     os.makedirs(checkpoint_dir, exist_ok=True)
 
-    # Salva in CSV (aggiorna il file ad ogni epoca)
-    df = pd.DataFrame(person_metrics_history)
-    # Crea la directory se non esiste
+   # Salva in CSV (aggiorna il file ad ogni epoca)
     csv_filename = "runs/detect/train/checkpoints/person_results.csv"
+
+  # Se il file CSV esiste già, carica i dati esistenti
+    if os.path.exists(csv_filename):
+      existing_df = pd.read_csv(csv_filename)
+    # Converte in lista di dizionari per mantenere la compatibilità
+      existing_data = existing_df.to_dict('records')
+    # Combina i dati esistenti con SOLO l'epoca corrente
+      all_metrics = existing_data + [epoch_metrics]  # Solo l'epoca corrente  
+    else:
+      all_metrics = [epoch_metrics]  # Solo l'epoca corrente
+
+    # Crea il DataFrame con tutti i dati
+    df = pd.DataFrame(all_metrics)
     df.to_csv(csv_filename, index=False)
+    
     print(f"\n📊 Validation solo 'person' (epoca {trainer.epoch+1}): Precisione={metrics.box.p[0]:.4f}, Recall={metrics.box.r[0]:.4f}, mAP50={metrics.box.ap50[0]:.4f}, mAP50-95={metrics.box.ap[0]:.4f}")
         
     
@@ -74,9 +86,6 @@ def val_person_callback(trainer):
                 if os.path.exists(destination_file):
                     file_size = os.path.getsize(destination_file)
                     print(f"✅ Checkpoint copiato con successo!")
-                    print(f"   📁 Cartella: {checkpoint_dir}/")
-                    print(f"   📄 File: epoch{epoch_num}.pt")
-                    print(f"   📏 Dimensione: {file_size / (1024*1024):.2f} MB")
                 else:
                     print(f"❌ Errore: Il file {destination_file} non è stato copiato!")
             else:
