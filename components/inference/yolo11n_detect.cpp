@@ -7,20 +7,20 @@ static const char* TAG = "YOLO11nDetect";
 YOLO11nDetect::YOLO11nDetect(dl::Model* model) {
     m_model = model;
     
-    // Inizializza ImagePreprocessor (come in COCODetect)
-    m_image_preprocessor = new dl::image::ImagePreprocessor(
+    // Inizializza ImagePreprocessor
+    m_image_preprocessor = new dl::image::ImagePreprocessor( //parametri perfetti per normalizzazione di YOLO11n
         m_model, 
         {0, 0, 0},      // mean
         {255, 255, 255} // std
     );
     
-    // Inizializza yolo11PostProcessor (come in COCODetect)
+    // Inizializza yolo11PostProcessor 
     m_postprocessor = new dl::detect::yolo11PostProcessor(
         m_model, 
-        0.25,   // score_threshold //ORIGINARIAMENTE E' 0.25!! //si può abbassare per risoluzioni bassissime come 64x64 
-        0.7,    // nms_threshold
-        10,     // resize_scale_x
-        {{8, 8, 4, 4}, {16, 16, 8, 8}, {32, 32, 16, 16}} // stages
+        0.10,   // score_threshold //ORIGINARIAMENTE E' 0.25!! //si può abbassare per risoluzioni bassissime come 64x64 DEFAULT=0.25
+        0.7,    // nms_threshold DEFAULT=0.7
+        10,     // resize_scale_x DEFAULT=10
+        {{8, 8, 4, 4}, {16, 16, 8, 8}, {32, 32, 16, 16}} // stages/livelli della feature pyramid DEFAULT={{8, 8, 4, 4}, {16, 16, 8, 8}, {32, 32, 16, 16}}
         //{{8, 8, 4, 4}, {16, 16, 8, 8}} // stages per risoluzioni bassissime come 64x64 (evita detection ridicole e microscopiche)
     );
 }

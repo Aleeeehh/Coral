@@ -124,9 +124,8 @@ bool inference_yolo_detection(inference_t *inf, const uint8_t* jpeg_data, size_t
 
     end_time_preprocessing = esp_timer_get_time() / 1000; //smetti di contare tempo preprocessing
 
-    // 2. USA LA NUOVA CLASSE (come nell'esempio Espressif)
+    // 2. USA LA NUOVA CLASSE
     YOLO11nDetect *detect = new YOLO11nDetect(inf->yolo_model); //modello yolo11n mio
-    //COCODetect *detect = new COCODetect(); //modello yolo11n coco di espressif (scarso)
 
     start_time_processing = esp_timer_get_time() / 1000;  //inizia a contare tempo inferenza 
     auto &detect_results = detect->run(img);
@@ -141,7 +140,7 @@ bool inference_yolo_detection(inference_t *inf, const uint8_t* jpeg_data, size_t
         switch_off_led();
     }
     
-    // 3. PROCESSA I RISULTATI (come nell'esempio Espressif)
+    // 3. PROCESSA I RISULTATI 
     printf("=== RISULTATI INFERENZA YOLO11n ===\n");
     printf("Numero di detection effettuate: %d\n", detect_results.size());
     printf("Tempo preprocessing: %lu ms\n", end_time_preprocessing - start_time_preprocessing);
@@ -177,7 +176,7 @@ bool inference_yolo_detection(inference_t *inf, const uint8_t* jpeg_data, size_t
     
 
     
-    // 4. LIBERA MEMORIA (come nell'esempio Espressif)
+    // 4. LIBERA MEMORIA 
     delete detect;
     heap_caps_free(img.data);
 
