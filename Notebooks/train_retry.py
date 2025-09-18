@@ -10,7 +10,7 @@ model = YOLO("yolo11n.pt") #esporta in .pt
 
 # Variabili usate in tutte le casistiche
 cartellaCheckpoint = "runs/detect/train/weights/last.pt"
-dataset_path = "/Users/alessioprato/Desktop/Tesi Nuova/Notebooks/datasets/coco_subset_3000_600/coco_subset.yaml"
+dataset_path = "coco.yaml"
 device = "mps"
 freeze = 11 #congela l'intera backbone(vanno da 0 a 10), pure l'ultimo blocco C2PSA di attention
 classes = [0]
