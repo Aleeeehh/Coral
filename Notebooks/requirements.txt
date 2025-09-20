@@ -3,6 +3,7 @@ tensorflow>=2.20.0rc0
 torch>=2.2.0
 torchvision>=0.17.0
 tensorflow-hub>=0.16.1
+torch_pruning==1.6.1
 
 # Computer Vision
 opencv-python==4.11.0.86
