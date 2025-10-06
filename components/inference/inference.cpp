@@ -94,6 +94,16 @@ bool inference_yolo_init(inference_t *inf) {
     inf->yolo_model_initialized = true;
     
     ESP_LOGI(TAG, "Modello YOLO ESP-DL inizializzato con successo!");
+    // Profilazione modello (le funzioni stampano internamente e ritornano void)
+    printf("Memoria usata dal modello YOLO:");
+    inf->yolo_model->profile_memory();
+    printf("===========================\n");
+    printf("Moduli modello in ordine standard YOLO:");
+    inf->yolo_model->profile_module();
+    printf("===========================\n");
+    printf("Moduli modello in ordine per latenza YOLO:");
+    inf->yolo_model->profile_module(true);
+    printf("===========================\n");
     return true;
 
 }
@@ -108,7 +118,7 @@ bool inference_yolo_detection(inference_t *inf, const uint8_t* jpeg_data, size_t
     start_time_full_inference = esp_timer_get_time() / 1000;  //inizia a contare tempo inferenza totale
     start_time_preprocessing = esp_timer_get_time() / 1000;  //inizia a contare tempo preprocessing
 
-    // 1. DECODIFICA JPEG (come nell'esempio Espressif)
+    // 1. DECODIFICA JPEG
     dl::image::jpeg_img_t jpeg_img = {
         .data = (void*)jpeg_data,
         .data_len = jpeg_size
@@ -132,6 +142,8 @@ bool inference_yolo_detection(inference_t *inf, const uint8_t* jpeg_data, size_t
     end_time_processing = esp_timer_get_time() / 1000; //smetti di contare tempo inferenza 
 
     end_time_full_inference = esp_timer_get_time() / 1000; //smetti di contare tempo inferenza totale
+
+
 
     if (detect_results.size() > 0){ //accendi il LED se ci sono detection rilevate
         switch_on_led();
