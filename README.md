@@ -4,7 +4,7 @@
 - `GET /` - Pagina principale con interfaccia web
 - `GET /capture` - Scatta una nuova foto
 - `GET /photo` - Visualizza l'ultima foto scattata
-- `POST /inference` - Esegue inferenza AI per rilevamento facce (MSRMNP_S8_V1)
+- `POST /inference` - Esegui inferenza
 
 ##  Compilazione e Flash
 
