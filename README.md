@@ -1,4 +1,4 @@
-# Progetto di Tesi su ESP32-S3 Ai Camera Per EdgeAI
+# Embedded Object Detection su ESP32-S3: ottimizzazione e deployment per l’Edge
 
 ## Endpoint Disponibili Interfaccia Web
 - `GET /` - Pagina principale con interfaccia web
