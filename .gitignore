@@ -6,6 +6,7 @@ dependencies.lock
 
 # IDE files
 .vscode/
+.cache/
 .idea/
 *.swp
 *.swo
@@ -20,6 +21,8 @@ Thumbs.db
 # Temporary files
 *.tmp
 *.temp 
+*.cache
+.cache
 
 # Notebooks - exclude heavy folders
 Notebooks/datasets/
