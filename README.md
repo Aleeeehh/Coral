@@ -1,6 +1,6 @@
 ## Embedded object detection on ESP32-S3: Optimization and deployment for edge computing
 
-![ESP32-S3 board and Yolo11 Architecture](images/board&model.png)
+![ESP32-S3 board and Yolo11 Architecture](documentation/images/board&model.png)
 
 This repository contains my **Bachelor's Thesis** project for my degree in Computer Science at the University of Bologna.
 This work was done with Giorgio Tsiotas and Luciano Bononi as supervisors, and you can find it in the [University Institutional Repository](https://amslaurea.unibo.it/id/eprint/36867/).
