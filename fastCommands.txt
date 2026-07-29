@@ -1,0 +1,22 @@
+## CLI ESP-IDF COMMANDS FOR ESP32-S3 ##
+    - "idf.py menuconfig" //configuration menu
+    - "idf.py set-target esp32s3" //set the target hardware
+    - "idf.py fullclean" //clean the build
+    - "idf.py build" //compile
+    - "idf.py -p <port> flash" //compile + flash
+    - "idf.py -p <port> monitor" //serial monitor
+    - "idf.py size-components" //show ram and flash usage per component
+
+## TO UPDATE DEPENDENCIES ##
+    - "idf.py fullclean" //clean the build
+    - "idf.py reconfigure" //install all the libraries specified in idf_component.yml
+    - "idf.py clean" //remove old build files
+    - "idf.py build" //compile with the new dependencies
+
+
+## OTHER NOTES ## 
+    - Remember, when the python notebooks venv is active in the terminal, 
+        you have to do deactivate it to use esp-idf commands
+    - Remember, for the web server, your browser and esp32 need to be 
+        connected to the same WiFi 
+    - Remember, close the serial monitor terminal before uploading new firmware
