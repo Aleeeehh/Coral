@@ -14,7 +14,7 @@ Deploying deep learning models on embedded systems and edge devices is a crucial
 
 The first part of the project focused on firmware development in C++ using the FreeRTOS real-time operating system. This enabled concurrent task execution across the chip's dual cores to manage the camera and run the inference engine efficiently. The second and final phase was dedicated to the optimization and deployment of a YOLO11 object detection model. This involved Post-Training Quantization, model scaling, and a custom training pipeline designed for resolution and domain adaptation. For further details, please refer to the complete [thesis PDF](Bachelor's%20Thesis/Thesis.pdf).
 
-See the syntethic [documentation](documentation/documentation.md) and [rapid commands](documentation/fastCommands.txt) for useful information for run and use the project locally.
+See the synthetic [documentation](documentation/documentation.md)  and [rapid commands](documentation/fastCommands.txt) for useful information to run and use the project locally.
 
 ![Results](documentation/images/results.png) 
 *Inference time in milliseconds and qualitative results of the final models*
@@ -36,7 +36,6 @@ You can also cite my thesis if you find it useful for your work.
 ```
 
 Thank you for taking the time to read through!
-
 
 
 
