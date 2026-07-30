@@ -1,4 +1,4 @@
-## Embedded object detection on ESP32-S3: Optimization and deployment for edge computing
+## Embedded Object Detection on ESP32-S3: optimization and deployment for edge computing
 
 This repository contains my **Bachelor's Thesis** project for my degree in Computer Science at the University of Bologna.
 This work was supervised by Giorgio Tsiotas and Luciano Bononi, and is available in the [University Institutional Repository](https://amslaurea.unibo.it/id/eprint/36867/).
